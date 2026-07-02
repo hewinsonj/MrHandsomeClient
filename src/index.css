@@ -7,8 +7,18 @@
 body {
   background: #0a0a0a;
   color: #f0f0f0;
-  font-family: 'Arial', sans-serif;
+  font-family: 'Special Elite', 'Courier New', Courier, monospace;
   overflow-x: hidden;
+}
+
+/* Force the typewriter font everywhere, including form controls and
+   Bootstrap components that would otherwise use their own font stack */
+*,
+button,
+input,
+textarea,
+select {
+  font-family: 'Special Elite', 'Courier New', Courier, monospace;
 }
 
 /* Three.js canvas sits behind everything */

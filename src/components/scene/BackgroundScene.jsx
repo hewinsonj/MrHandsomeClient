@@ -1,6 +1,7 @@
-import React, { useMemo, useRef, useEffect, Suspense } from 'react'
+import React, { useMemo, useRef, useEffect, useState, Suspense } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { MeshReflectorMaterial, useGLTF, Center } from '@react-three/drei'
+import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import * as THREE from 'three'
 
 // --- Checkerboard floor texture ---
@@ -210,17 +211,20 @@ const TrainTrack = () => {
     groupRef.current.position.z = Math.round(camera.position.z / TIE_SPACING) * TIE_SPACING
   })
 
+  // frustumCulled=false: the track follows the camera, and the instanced ties'
+  // auto bounding sphere is just one tiny tie box at the group origin — so the
+  // renderer would otherwise cull the whole track in and out as it drifts.
   return (
     <group ref={groupRef}>
-      <mesh position={[-RAIL_GAUGE, 0.1, 0]}>
+      <mesh position={[-RAIL_GAUGE, 0.1, 0]} frustumCulled={false}>
         <boxGeometry args={[0.07, 0.1, TRACK_SPAN]} />
         <meshStandardMaterial color='#c0c0c0' metalness={0.95} roughness={0.1} />
       </mesh>
-      <mesh position={[RAIL_GAUGE, 0.1, 0]}>
+      <mesh position={[RAIL_GAUGE, 0.1, 0]} frustumCulled={false}>
         <boxGeometry args={[0.07, 0.1, TRACK_SPAN]} />
         <meshStandardMaterial color='#c0c0c0' metalness={0.95} roughness={0.1} />
       </mesh>
-      <instancedMesh ref={tiesRef} args={[null, null, TIE_COUNT]}>
+      <instancedMesh ref={tiesRef} args={[null, null, TIE_COUNT]} frustumCulled={false}>
         <boxGeometry args={[1.9, 0.07, 0.16]} />
         <meshStandardMaterial color='#3b2614' roughness={0.97} metalness={0} />
       </instancedMesh>
@@ -230,12 +234,17 @@ const TrainTrack = () => {
 
 // --- Infinite corridor: 12-slot pool that repositions itself every frame ---
 const STATUE_SPACING = 7
-const SLOT_COUNT     = 12   // pool size — always SLOT_COUNT groups mounted
+const SLOT_COUNT     = 12    // pool size — always SLOT_COUNT groups mounted
 const LIGHT_SPEED    = 0.15
+const CAM_SPEED      = 0.85  // camera travel speed down the tracks (units/sec)
 const BUST_HEAD_Y    = [3.5, 2.5, 2.5]
 
 // Seeded pseudo-random in [0,1)
 const fhash = (n) => Math.abs(Math.sin(n * 127.1) * 43758.5453 % 1)
+
+// Seeded x that keeps candles off the central train track: |x| in [1.4, 3.4],
+// side chosen by the seed (track ties are only ~0.95 wide either side of center)
+const candleX = (s) => (fhash(s) < 0.5 ? -1 : 1) * (1.4 + fhash(s * 1.7 + 3.3) * 2.0)
 
 const InfiniteCorridorSystem = () => {
   const slotGroupRefs  = useRef([])
@@ -248,13 +257,13 @@ const InfiniteCorridorSystem = () => {
   const candleConfigs = useMemo(() =>
     Array.from({ length: SLOT_COUNT }, (_, p) => [
       {
-        x:    (fhash(p * 7 + 1) - 0.5) * 7,
+        x:    candleX(p * 7 + 1),
         z:    (fhash(p * 7 + 2) - 0.5) * 4,
         rotY:  fhash(p * 7 + 3) * Math.PI * 2,
         idx:   Math.floor(fhash(p * 7 + 4) * 3),
       },
       {
-        x:    (fhash(p * 7 + 5) - 0.5) * 7,
+        x:    candleX(p * 7 + 5),
         z:    (fhash(p * 7 + 6) - 0.5) * 4,
         rotY:  fhash(p * 7 + 7) * Math.PI * 2,
         idx:   Math.floor(fhash(p * 7 + 8) * 3),
@@ -268,7 +277,7 @@ const InfiniteCorridorSystem = () => {
     // Move camera forward forever — no modulo, no jump
     camera.position.x = Math.sin(t * 0.08) * 0.6
     camera.position.y = 1.4 + Math.sin(t * 0.18) * 0.08
-    camera.position.z = 6 - t * 0.4
+    camera.position.z = 6 - t * CAM_SPEED
     camera.lookAt(camera.position.x * 0.2, 1.6, camera.position.z - 15)
 
     const cameraZ    = camera.position.z
@@ -367,6 +376,136 @@ const InfiniteCorridorSystem = () => {
   )
 }
 
+// --- Dancers: exactly TWO instances, reused forever ---
+// Glowing multicolored figures between the busts on each side. A pool of 2
+// repositions to the two nearest "dance spots" ahead of the camera; when one
+// passes behind, it recycles far ahead (into the fog) so there is never a
+// visible pop and never more than 2 skinned meshes alive at once.
+const DANCER_PATHS    = [
+  '/models/dancer1/scene.gltf',
+  '/models/dancer2/scene.gltf',
+  '/models/dancer3/scene.gltf',
+]
+const DANCER_COUNT    = DANCER_PATHS.length
+const DANCE_SPEED     = 0.25   // playback speed of the dance animation (1 = normal, lower = slower)
+const DANCER_TARGET_H = 2.4    // world height every dancer is normalized to
+const DANCER_X        = 4.4    // how far to the side they stand
+const DANCE_SPACING   = 24     // gap between dance spots along the corridor
+const DANCE_START_Z   = -10    // z of dance spot 0
+DANCER_PATHS.forEach((p) => useGLTF.preload(p))
+
+const Dancer = React.forwardRef(({ dancerIndex, timeOffset = 0 }, ref) => {
+  const { scene, animations } = useGLTF(DANCER_PATHS[dancerIndex])
+
+  // SkeletonUtils.clone — scene.clone() would break the skinned mesh/skeleton link
+  const model = useMemo(() => cloneSkinned(scene), [scene])
+
+  // Shared time uniform driving the color cycle; the dancers' hues are spread
+  // evenly across the wheel so they're never the same color.
+  const timeUniform = useMemo(() => ({ value: 0 }), [])
+  const hueOffset   = dancerIndex / DANCER_COUNT
+
+  // Glow the model with an animated vertical rainbow, and normalize its size.
+  const fit = useMemo(() => {
+    model.traverse((o) => {
+      if (o.isMesh) {
+        const mat = new THREE.MeshBasicMaterial({ toneMapped: false }) // unlit → glows on its own
+        mat.onBeforeCompile = (shader) => {
+          shader.uniforms.uTime = timeUniform
+          // pass world-space height to the fragment shader (model-scale independent)
+          shader.vertexShader = shader.vertexShader
+            .replace('#include <common>', '#include <common>\nvarying float vWorldY;')
+            .replace(
+              '#include <project_vertex>',
+              '#include <project_vertex>\n vWorldY = (modelMatrix * vec4(transformed, 1.0)).y;'
+            )
+          // recolor with an HSV rainbow that scrolls up the body over time
+          shader.fragmentShader = shader.fragmentShader
+            .replace(
+              '#include <common>',
+              `#include <common>
+               varying float vWorldY;
+               uniform float uTime;
+               vec3 hsv2rgb(float h, float s, float v) {
+                 vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
+                 vec3 p = abs(fract(h + K.xyz) * 6.0 - K.www);
+                 return v * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), s);
+               }`
+            )
+            .replace(
+              'vec4 diffuseColor = vec4( diffuse, opacity );',
+              `float hue = fract(vWorldY * 0.35 - uTime * 0.15 + ${hueOffset.toFixed(3)});
+               vec4 diffuseColor = vec4( hsv2rgb(hue, 1.0, 1.0), opacity );`
+            )
+        }
+        o.material = mat
+        o.frustumCulled = false
+      }
+    })
+    model.updateMatrixWorld(true)
+    const box  = new THREE.Box3().setFromObject(model)
+    const size = new THREE.Vector3(); box.getSize(size)
+    const scale = size.y > 0 ? DANCER_TARGET_H / size.y : 1
+    return { scale, footY: box.min.y }
+  }, [model, timeUniform, hueOffset])
+
+  // Each dancer gets its own mixer so they can be at different points in the dance
+  const mixer = useMemo(() => new THREE.AnimationMixer(model), [model])
+  useEffect(() => {
+    if (!animations.length) return
+    const action = mixer.clipAction(animations[0])
+    action.play()
+    mixer.setTime(timeOffset)
+    return () => { mixer.stopAllAction(); mixer.uncacheRoot(model) }
+  }, [mixer, animations, timeOffset, model])
+  useFrame((_, delta) => {
+    mixer.update(delta * DANCE_SPEED)   // scale playback to slow the dance
+    timeUniform.value += delta          // advance the color cycle (unaffected)
+  })
+
+  // Transform (side/z) is driven by the parent each frame; feet sit on the floor.
+  return (
+    <group ref={ref}>
+      <primitive object={model} scale={fit.scale} position={[0, -fit.footY * fit.scale, 0]} />
+    </group>
+  )
+})
+
+const DancerPair = () => {
+  const refs = useRef([])
+
+  useFrame(({ camera }) => {
+    const camZ = camera.position.z
+    // first dance spot at or ahead of the camera (camera travels toward -z)
+    const kMin = Math.ceil((DANCE_START_Z - camZ) / DANCE_SPACING)
+    for (let d = 0; d < DANCER_COUNT; d++) {
+      // dancer d always occupies the spot with k ≡ d (mod DANCER_COUNT), so the
+      // dancers fill DANCER_COUNT consecutive spots ahead of the camera. When one
+      // passes behind, its k jumps forward by DANCER_COUNT (into the fog) — no pop.
+      const k = kMin + (((d - (kMin % DANCER_COUNT)) % DANCER_COUNT) + DANCER_COUNT) % DANCER_COUNT
+      const g = refs.current[d]
+      if (!g) continue
+      const left = ((k % 2) + 2) % 2 === 0   // alternate sides down the corridor
+      g.position.x = left ? -DANCER_X : DANCER_X
+      g.position.z = DANCE_START_Z - k * DANCE_SPACING
+      g.rotation.y = left ? Math.PI / 2 : -Math.PI / 2   // face the corridor center
+    }
+  })
+
+  return (
+    <Suspense fallback={null}>
+      {DANCER_PATHS.map((_, d) => (
+        <Dancer
+          key={d}
+          ref={(el) => { refs.current[d] = el }}
+          dancerIndex={d}
+          timeOffset={d * 1.3}
+        />
+      ))}
+    </Suspense>
+  )
+}
+
 const Scene = () => (
   <>
     <color attach='background' args={['#0d0d0d']} />
@@ -379,18 +518,43 @@ const Scene = () => (
     <Ceiling />
     <TrainTrack />
     <InfiniteCorridorSystem />
+    <DancerPair />
   </>
 )
 
-const BackgroundScene = () => (
-  <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0, pointerEvents: 'none' }}>
-    <Canvas
-      camera={{ position: [0, 1.4, 6], fov: 75 }}
-      gl={{ antialias: false, powerPreference: 'high-performance' }}
-    >
-      <Scene />
-    </Canvas>
-  </div>
-)
+const INTRO_DELAY_MS = 5000   // hold on black (menu + text only) before revealing the scene
+const FADE_SECONDS   = 2.5    // how long the black curtain takes to fade out
+
+const BackgroundScene = () => {
+  // The scene renders at full opacity from load; a solid black overlay on top
+  // hides it at first (showing only the menu + text), then fades out after
+  // INTRO_DELAY_MS. Fading a plain div — not the live WebGL canvas — keeps the
+  // reveal smooth instead of snapping.
+  const [revealed, setRevealed] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setRevealed(true), INTRO_DELAY_MS)
+    return () => clearTimeout(t)
+  }, [])
+
+  return (
+    <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0, pointerEvents: 'none' }}>
+      <Canvas
+        camera={{ position: [0, 1.4, 6], fov: 75 }}
+        gl={{ antialias: false, powerPreference: 'high-performance' }}
+      >
+        <Scene />
+      </Canvas>
+      {/* Black intro curtain — sits over the canvas, under the menu/text, fades away */}
+      <div
+        style={{
+          position: 'absolute', inset: 0, background: '#000',
+          opacity: revealed ? 0 : 1,
+          transition: `opacity ${FADE_SECONDS}s ease-in-out`,
+          pointerEvents: 'none',
+        }}
+      />
+    </div>
+  )
+}
 
 export default BackgroundScene
