@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useEffect, useState, Suspense } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { MeshReflectorMaterial, useGLTF, Center } from '@react-three/drei'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import * as THREE from 'three'
 
 // --- Checkerboard floor texture ---
@@ -506,6 +507,141 @@ const DancerPair = () => {
   )
 }
 
+// --- Trash: super-low-cost glowing floor clutter ---
+// Each model is merged to a single geometry and drawn with ONE InstancedMesh
+// (1 draw call per type, no matter the count) using an unlit rainbow material
+// that ignores every light in the scene. Instances are pooled and recycled
+// down the corridor, so we only ever draw the visible handful.
+const TRASH_PATHS   = ['/models/trash1/scene.gltf', '/models/trash2/scene.gltf', '/models/trash3/scene.gltf']
+const TRASH_TYPES   = TRASH_PATHS.length
+const TRASH_POOL    = 15     // total pieces alive (divisible by TRASH_TYPES → 5 each)
+const TRASH_PER     = TRASH_POOL / TRASH_TYPES
+const TRASH_SPACING = 5      // gap between trash spots (× pool ≈ 75u window, covers the fog)
+const TRASH_START_Z = -6
+const TRASH_MAX     = 1.9    // largest dimension each piece is normalized to (bigger piles)
+TRASH_PATHS.forEach((p) => useGLTF.preload(p))
+
+// Merge all of a model's meshes into one position-only, floor-seated geometry
+const mergeTrashGeometry = (root) => {
+  root.updateMatrixWorld(true)
+  const parts = []
+  root.traverse((o) => {
+    if (o.isMesh && o.geometry) {
+      let g = o.geometry.clone()
+      g.applyMatrix4(o.matrixWorld)
+      if (g.index) g = g.toNonIndexed()
+      const pos = g.getAttribute('position')
+      const ng = new THREE.BufferGeometry()
+      ng.setAttribute('position', pos)   // unlit → position is all we need
+      parts.push(ng)
+    }
+  })
+  const merged = mergeGeometries(parts, false)
+  merged.computeBoundingBox()
+  const bb = merged.boundingBox
+  const cx = (bb.min.x + bb.max.x) / 2
+  const cz = (bb.min.z + bb.max.z) / 2
+  merged.translate(-cx, -bb.min.y, -cz)   // center on x/z, seat base at y = 0
+  const size  = new THREE.Vector3(); bb.getSize(size)
+  const scale = TRASH_MAX / Math.max(size.x, size.y, size.z)
+  return { geometry: merged, scale }
+}
+
+const TrashType = React.forwardRef(({ typeIndex, material }, ref) => {
+  const { scene } = useGLTF(TRASH_PATHS[typeIndex])
+  const { geometry, scale } = useMemo(() => mergeTrashGeometry(scene), [scene])
+
+  // Seeded per-instance hue so pieces glow different colors
+  useEffect(() => {
+    const mesh = ref.current
+    if (!mesh) return
+    const hues = new Float32Array(TRASH_PER)
+    for (let i = 0; i < TRASH_PER; i++) hues[i] = fhash(typeIndex * 17 + i * 3.7)
+    mesh.geometry.setAttribute('aHue', new THREE.InstancedBufferAttribute(hues, 1))
+  }, [ref, typeIndex, geometry])
+
+  // stash the normalization scale on the mesh so the pool loop can read it
+  useEffect(() => { if (ref.current) ref.current.userData.trashScale = scale }, [ref, scale])
+
+  return (
+    <instancedMesh ref={ref} args={[geometry, material, TRASH_PER]} frustumCulled={false} />
+  )
+})
+
+const TrashField = () => {
+  const refs        = useMemo(() => TRASH_PATHS.map(() => React.createRef()), [])
+  const dummy       = useMemo(() => new THREE.Object3D(), [])
+  const timeUniform = useMemo(() => ({ value: 0 }), [])
+
+  // One shared unlit material: solid per-instance rainbow that cycles over time
+  const material = useMemo(() => {
+    const mat = new THREE.MeshBasicMaterial({ toneMapped: false })
+    mat.onBeforeCompile = (shader) => {
+      shader.uniforms.uTime = timeUniform
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nattribute float aHue;\nvarying float vHue;\nvarying vec3 vViewPos;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvHue = aHue;')
+        .replace('#include <project_vertex>', '#include <project_vertex>\nvViewPos = mvPosition.xyz;')
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+           varying float vHue;
+           varying vec3 vViewPos;
+           uniform float uTime;
+           vec3 hsv2rgb(float h, float s, float v) {
+             vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
+             vec3 p = abs(fract(h + K.xyz) * 6.0 - K.www);
+             return v * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), s);
+           }`
+        )
+        .replace(
+          'vec4 diffuseColor = vec4( diffuse, opacity );',
+          `float h = fract(vHue + uTime * 0.12);
+           vec3 base = hsv2rgb(h, 1.0, 0.55);
+           // per-face normal from screen-space derivatives → reveals surface detail, no lights
+           vec3 n = normalize(cross(dFdx(vViewPos), dFdy(vViewPos)));
+           float diff = clamp(dot(n, normalize(vec3(0.35, 0.7, 0.55))), 0.0, 1.0);
+           float shade = 0.22 + 0.78 * diff;
+           vec4 diffuseColor = vec4( base * shade, opacity );`
+        )
+    }
+    return mat
+  }, [timeUniform])
+
+  useFrame(({ camera }, delta) => {
+    timeUniform.value += delta
+    const camZ = camera.position.z
+    const kMin = Math.ceil((TRASH_START_Z - camZ) / TRASH_SPACING)
+    for (let p = 0; p < TRASH_POOL; p++) {
+      const worldK = kMin + ((((p - (kMin % TRASH_POOL)) % TRASH_POOL) + TRASH_POOL) % TRASH_POOL)
+      const type = p % TRASH_TYPES
+      const idx  = Math.floor(p / TRASH_TYPES)
+      const mesh = refs[type].current
+      if (!mesh) continue
+      const x    = (fhash(worldK * 3.1 + 0.7) - 0.5) * 9     // scatter across the floor
+      const rotY = fhash(worldK * 3.1 + 1.3) * Math.PI * 2
+      const s    = mesh.userData.trashScale || 1
+      dummy.position.set(x, 0, TRASH_START_Z - worldK * TRASH_SPACING)
+      dummy.rotation.set(0, rotY, 0)
+      dummy.scale.setScalar(s)
+      dummy.updateMatrix()
+      mesh.setMatrixAt(idx, dummy.matrix)
+    }
+    for (let t = 0; t < TRASH_TYPES; t++) {
+      if (refs[t].current) refs[t].current.instanceMatrix.needsUpdate = true
+    }
+  })
+
+  return (
+    <Suspense fallback={null}>
+      {TRASH_PATHS.map((_, t) => (
+        <TrashType key={t} typeIndex={t} material={material} ref={refs[t]} />
+      ))}
+    </Suspense>
+  )
+}
+
 const Scene = () => (
   <>
     <color attach='background' args={['#0d0d0d']} />
@@ -519,6 +655,7 @@ const Scene = () => (
     <TrainTrack />
     <InfiniteCorridorSystem />
     <DancerPair />
+    <TrashField />
   </>
 )
 
