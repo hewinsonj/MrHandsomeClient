@@ -14,7 +14,7 @@ const ChangePassword = ({ msgAlert, user }) => {
     e.preventDefault()
     changePassword({ oldPassword, newPassword }, user)
       .then(() => msgAlert({ heading: 'Password Changed', message: messages.changePasswordSuccess, variant: 'success' }))
-      .then(() => navigate('/'))
+      .then(() => navigate('/home'))
       .catch((err) => {
         setOldPassword('')
         setNewPassword('')

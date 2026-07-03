@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import Card from 'react-bootstrap/Card'
 import Button from 'react-bootstrap/Button'
 import Row from 'react-bootstrap/Row'
@@ -26,7 +26,10 @@ const Shop = ({ msgAlert, user }) => {
 
   return (
     <div className='container py-5' style={{ position: 'relative', zIndex: 1 }}>
-      <h2 className='mb-4'>Shop</h2>
+      <Link to='/home' style={{ color: '#f0f0f0', textDecoration: 'none', opacity: 0.85 }}>
+        &larr; Home
+      </Link>
+      <h2 className='mt-3 mb-4'>Shop</h2>
       <Row xs={1} md={2} lg={3} className='g-4'>
         {products.map((product) => (
           <Col key={product._id}>

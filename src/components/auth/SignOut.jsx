@@ -11,7 +11,7 @@ const SignOut = ({ msgAlert, clearUser, user }) => {
     signOut(user)
       .finally(() => msgAlert({ heading: 'Signed Out', message: messages.signOutSuccess, variant: 'success' }))
       .finally(() => clearUser())
-      .finally(() => navigate('/'))
+      .finally(() => navigate('/home'))
   }
 
   return (
@@ -22,7 +22,7 @@ const SignOut = ({ msgAlert, clearUser, user }) => {
         <br /><br />
         <ButtonGroup>
           <Button variant='danger' onClick={onSignOut}>Sign Out</Button>
-          <Button variant='secondary' onClick={() => navigate('/')}>Cancel</Button>
+          <Button variant='secondary' onClick={() => navigate('/home')}>Cancel</Button>
         </ButtonGroup>
       </div>
     </div>

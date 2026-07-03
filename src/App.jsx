@@ -6,6 +6,7 @@ import AutoDismissAlert from './components/shared/AutoDismissAlert/AutoDismissAl
 import RequireAuth from './components/shared/RequireAuth'
 import BackgroundScene from './components/scene/BackgroundScene'
 // import GoldFrame from './components/scene/GoldFrame' // gold frame disabled for now — re-enable with the render + index.css block
+import Splash from './components/Splash'
 import Home from './components/Home'
 import SignUp from './components/auth/SignUp'
 import SignIn from './components/auth/SignIn'
@@ -35,7 +36,8 @@ const App = () => {
       {/* <GoldFrame /> */}
 
       <Routes>
-        <Route path='/' element={<Home msgAlert={msgAlert} user={user} />} />
+        <Route path='/' element={<Splash />} />
+        <Route path='/home' element={<Home msgAlert={msgAlert} user={user} />} />
         <Route path='/shop' element={<Shop msgAlert={msgAlert} user={user} />} />
         <Route
           path='/checkout'

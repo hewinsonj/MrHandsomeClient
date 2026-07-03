@@ -18,7 +18,7 @@ const SignUp = ({ msgAlert, setUser }) => {
       .then(() => signIn(credentials))
       .then((res) => setUser(res.data.user))
       .then(() => msgAlert({ heading: 'Registered!', message: messages.signUpSuccess, variant: 'success' }))
-      .then(() => navigate('/'))
+      .then(() => navigate('/home'))
       .catch((err) => {
         setEmail('')
         setPassword('')

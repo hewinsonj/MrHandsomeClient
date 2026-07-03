@@ -520,7 +520,7 @@ const TRASH_POOL    = 15     // total pieces alive (divisible by TRASH_TYPES →
 const TRASH_PER     = TRASH_POOL / TRASH_TYPES
 const TRASH_SPACING = 5      // gap between trash spots (× pool ≈ 75u window, covers the fog)
 const TRASH_START_Z = -6
-const TRASH_MAX     = [1.9, 6.0, 1.9]   // per-type: largest dimension each piece normalizes to; trash2 is a big pile
+const TRASH_MAX     = [1.9, 4.0, 1.9]   // per-type: largest dimension each piece normalizes to; trash2 is a big pile
 TRASH_PATHS.forEach((p) => useGLTF.preload(p))
 
 // Merge a model's meshes into one floor-seated geometry PER SOURCE MATERIAL,
@@ -618,10 +618,10 @@ const TrashField = () => {
       if (!groupMeshes) continue
       let x = (fhash(worldK * 3.1 + 0.7) - 0.5) * 9         // scatter across the floor
       if (type === 1) {
-        // trash2 is a big pile — keep its center out of the central train-track
-        // lane (rails/ties live within |x| ≲ 0.95) by seating it in a side gutter
+        // trash2 is a big pile — push it out to the sides of the corridor, well
+        // clear of the central train-track lane (rails/ties live within |x| ≲ 0.95)
         const side = x < 0 ? -1 : 1
-        x = side * (2.5 + fhash(worldK * 5.3 + 2.9) * 1.5)  // |x| in [2.5, 4.0]
+        x = side * (4.0 + fhash(worldK * 5.3 + 2.9) * 1.2)  // |x| in [4.0, 5.2]
       }
       // independent seed → random facing, uncorrelated with x, but stable per world spot
       const rotY = fhash(worldK * 12.9898 + 4.1) * Math.PI * 2

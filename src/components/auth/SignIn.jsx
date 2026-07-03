@@ -15,7 +15,7 @@ const SignIn = ({ msgAlert, setUser }) => {
     signIn({ email, password })
       .then((res) => setUser(res.data.user))
       .then(() => msgAlert({ heading: 'Signed In', message: messages.signInSuccess, variant: 'success' }))
-      .then(() => navigate('/'))
+      .then(() => navigate('/home'))
       .catch((err) => {
         setEmail('')
         setPassword('')

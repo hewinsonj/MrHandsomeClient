@@ -30,7 +30,7 @@ const CheckoutForm = ({ msgAlert, product }) => {
       setLoading(false)
     } else {
       msgAlert({ heading: 'Order Placed!', message: messages.orderSuccess, variant: 'success' })
-      navigate('/')
+      navigate('/home')
     }
   }
 
