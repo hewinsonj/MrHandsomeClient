@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useEffect, useState, Suspense } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { MeshReflectorMaterial, useGLTF, Center } from '@react-three/drei'
+import { MeshReflectorMaterial, useGLTF, Center, useProgress } from '@react-three/drei'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import * as THREE from 'three'
@@ -684,8 +684,12 @@ const Curtains = ({ running }) => {
       if (o.morphTargetInfluences) ms.push(o)
       if (o.material) {
         o.material.side = THREE.DoubleSide                  // visible whichever way a panel faces
-        o.material.emissive = new THREE.Color('#7a0010')    // self-illuminate the dark velvet
-        o.material.emissiveIntensity = 1.4
+        // Self-illuminate using the velvet texture itself (not a flat red), so the
+        // fold detail/shading shows and it reads dark + textured rather than washed out.
+        o.material.emissiveMap = o.material.map
+        o.material.emissive = new THREE.Color('#ffffff')    // let the map show in its own colours
+        o.material.emissiveIntensity = 0.55                 // dim → darker, texture-driven glow
+        o.material.needsUpdate = true
       }
     })
     return ms
@@ -728,17 +732,26 @@ const Scene = ({ running }) => (
   </>
 )
 
-const INTRO_DELAY_MS = 200    // brief hold on black before the closed curtains fade in
-const FADE_SECONDS   = 1.5    // how long the black overlay takes to fade out
+const SETTLE_MS          = 400    // brief settle after assets load so the first frame is drawn
+const FADE_SECONDS       = 1.5    // how long the black overlay takes to fade out
+const REVEAL_FALLBACK_MS = 12000  // reveal anyway if loading never resolves, so it can't stay black
 
 const BackgroundScene = ({ running }) => {
-  // The scene renders at full opacity from load; a solid black overlay on top
-  // hides it at first (showing only the menu + text), then fades out after
-  // INTRO_DELAY_MS. Fading a plain div — not the live WebGL canvas — keeps the
-  // reveal smooth instead of snapping.
+  // A solid black overlay hides the scene at first, then fades out. We hold the
+  // fade until every model/texture has finished loading (via useProgress) so
+  // nothing pops in — with a safety fallback so it can never stay black forever.
   const [revealed, setRevealed] = useState(false)
+  const { active, total } = useProgress()
+  const ready = total > 0 && !active   // loads were registered AND the manager is now idle
+
   useEffect(() => {
-    const t = setTimeout(() => setRevealed(true), INTRO_DELAY_MS)
+    if (!ready) return undefined
+    const t = setTimeout(() => setRevealed(true), SETTLE_MS)
+    return () => clearTimeout(t)
+  }, [ready])
+
+  useEffect(() => {
+    const t = setTimeout(() => setRevealed(true), REVEAL_FALLBACK_MS)
     return () => clearTimeout(t)
   }, [])
 
