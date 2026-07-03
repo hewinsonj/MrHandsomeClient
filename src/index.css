@@ -37,3 +37,45 @@ select {
   position: relative;
   z-index: 1;
 }
+
+/* --- Gaudy gold picture frame around the whole viewport (disabled for now) ---
+   Re-enable together with the <GoldFrame /> import + render in App.jsx.
+   NOTE: the `body { padding: var(--frame-w) }` rule insets all content inside
+   the moulding — it must stay commented out while the frame is off.
+
+:root {
+  --frame-w: clamp(24px, 5.5vw, 82px);
+}
+
+body {
+  padding: var(--frame-w);
+}
+
+.gold-frame {
+  border-style: solid;
+  border-width: var(--frame-w);
+  border-image-source: url('/frames/gold-frame.webp');
+  border-image-slice: 24% 24% 22% 24%;
+  border-image-repeat: stretch;
+  animation: frameGlow 7s ease-in-out infinite;
+}
+
+@keyframes frameGlow {
+  0%, 100% {
+    filter:
+      drop-shadow(0 0 4px rgba(255, 40, 170, 0.45))
+      drop-shadow(0 0 13px rgba(0, 229, 255, 0.28))
+      drop-shadow(0 0 26px rgba(140, 0, 238, 0.38));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 7px rgba(255, 40, 170, 0.65))
+      drop-shadow(0 0 22px rgba(0, 229, 255, 0.45))
+      drop-shadow(0 0 40px rgba(140, 0, 238, 0.55));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gold-frame { animation: none; filter: drop-shadow(0 0 10px rgba(140, 0, 238, 0.4)); }
+}
+*/

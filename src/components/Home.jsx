@@ -4,6 +4,8 @@ import Button from 'react-bootstrap/Button'
 
 const TITLE_TEXT = 'MR. HANDSOME'
 
+const navLinkStyle = { color: '#f0f0f0', textDecoration: 'none', opacity: 0.85 }
+
 // Per-letter waving, drifting, multicolored title
 const WavyTitle = ({ text }) => (
   <h1 className='wavy-title'>
@@ -77,8 +79,25 @@ const Home = ({ user }) => (
     <Link to='/shop'>
       <Button variant='outline-light' size='lg'>Shop / Downloads</Button>
     </Link>
+
+    {/* Account / navigation links — these used to live in the top menu bar */}
+    <nav style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', marginTop: '1.75rem', fontSize: '0.95rem' }}>
+      {user ? (
+        <>
+          <span style={{ opacity: 0.55 }}>{user.email}</span>
+          <Link to='/change-password' style={navLinkStyle}>Change Password</Link>
+          <Link to='/sign-out' style={navLinkStyle}>Sign Out</Link>
+        </>
+      ) : (
+        <>
+          <Link to='/sign-up' style={navLinkStyle}>Sign Up</Link>
+          <Link to='/sign-in' style={navLinkStyle}>Sign In</Link>
+        </>
+      )}
+    </nav>
+
     {!user && (
-      <p style={{ marginTop: '1.5rem', opacity: 0.5, fontSize: '0.9rem' }}>
+      <p style={{ marginTop: '1rem', opacity: 0.5, fontSize: '0.9rem' }}>
         <Link to='/sign-in' style={{ color: '#f0f0f0' }}>Sign in</Link> to purchase &amp; download
       </p>
     )}

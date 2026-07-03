@@ -507,136 +507,147 @@ const DancerPair = () => {
   )
 }
 
-// --- Trash: super-low-cost glowing floor clutter ---
-// Each model is merged to a single geometry and drawn with ONE InstancedMesh
-// (1 draw call per type, no matter the count) using an unlit rainbow material
-// that ignores every light in the scene. Instances are pooled and recycled
-// down the corridor, so we only ever draw the visible handful.
+// --- Trash: textured, low-cost floor clutter ---
+// Each model keeps its real glTF base-color texture(s). A model's meshes are
+// merged PER MATERIAL (trash2 is a 36-material junk pile), and every material
+// group becomes one pooled InstancedMesh — so a piece is a handful of draw
+// calls, not one, but instances are still recycled down the corridor and we
+// only ever draw the visible few. Materials are unlit (MeshBasicMaterial + map)
+// so the trash stays visible on the near-black floor and fades into the fog.
 const TRASH_PATHS   = ['/models/trash1/scene.gltf', '/models/trash2/scene.gltf', '/models/trash3/scene.gltf']
 const TRASH_TYPES   = TRASH_PATHS.length
 const TRASH_POOL    = 15     // total pieces alive (divisible by TRASH_TYPES → 5 each)
 const TRASH_PER     = TRASH_POOL / TRASH_TYPES
 const TRASH_SPACING = 5      // gap between trash spots (× pool ≈ 75u window, covers the fog)
 const TRASH_START_Z = -6
-const TRASH_MAX     = 1.9    // largest dimension each piece is normalized to (bigger piles)
+const TRASH_MAX     = [1.9, 6.0, 1.9]   // per-type: largest dimension each piece normalizes to; trash2 is a big pile
 TRASH_PATHS.forEach((p) => useGLTF.preload(p))
 
-// Merge all of a model's meshes into one position-only, floor-seated geometry
-const mergeTrashGeometry = (root) => {
+// Merge a model's meshes into one floor-seated geometry PER SOURCE MATERIAL,
+// preserving UVs so the original base-color texture maps correctly. All groups
+// share one normalization (combined bbox) so they stay a single coherent piece.
+const mergeTrashByMaterial = (root, maxSize) => {
   root.updateMatrixWorld(true)
-  const parts = []
+  const groups  = new Map()          // material.uuid → { geoms, map, color }
+  const overall = new THREE.Box3()
   root.traverse((o) => {
     if (o.isMesh && o.geometry) {
       let g = o.geometry.clone()
-      g.applyMatrix4(o.matrixWorld)
+      g.applyMatrix4(o.matrixWorld)    // bake world transform so all groups share one space
       if (g.index) g = g.toNonIndexed()
       const pos = g.getAttribute('position')
+      const uv  = g.getAttribute('uv') ||
+        new THREE.BufferAttribute(new Float32Array(pos.count * 2), 2)   // fallback: flat UVs
       const ng = new THREE.BufferGeometry()
-      ng.setAttribute('position', pos)   // unlit → position is all we need
-      parts.push(ng)
+      ng.setAttribute('position', pos)
+      ng.setAttribute('uv', uv)        // unlit textured → position + uv is all we need
+      ng.computeBoundingBox()
+      overall.union(ng.boundingBox)
+
+      const mat = Array.isArray(o.material) ? o.material[0] : o.material
+      const key = mat ? mat.uuid : 'none'
+      if (!groups.has(key)) {
+        groups.set(key, {
+          geoms: [],
+          map:   mat?.map || null,
+          color: mat?.color ? mat.color.clone() : new THREE.Color('#ffffff'),
+        })
+      }
+      groups.get(key).geoms.push(ng)
     }
   })
-  const merged = mergeGeometries(parts, false)
-  merged.computeBoundingBox()
-  const bb = merged.boundingBox
-  const cx = (bb.min.x + bb.max.x) / 2
-  const cz = (bb.min.z + bb.max.z) / 2
-  merged.translate(-cx, -bb.min.y, -cz)   // center on x/z, seat base at y = 0
-  const size  = new THREE.Vector3(); bb.getSize(size)
-  const scale = TRASH_MAX / Math.max(size.x, size.y, size.z)
-  return { geometry: merged, scale }
+
+  const cx   = (overall.min.x + overall.max.x) / 2
+  const cz   = (overall.min.z + overall.max.z) / 2
+  const size = new THREE.Vector3(); overall.getSize(size)
+  const scale = maxSize / Math.max(size.x, size.y, size.z)
+
+  const out = []
+  groups.forEach(({ geoms, map, color }) => {
+    const merged = mergeGeometries(geoms, false)
+    merged.translate(-cx, -overall.min.y, -cz)   // center on x/z, seat base at y = 0
+    out.push({ geometry: merged, map, color })
+  })
+  return { groups: out, scale }
 }
 
-const TrashType = React.forwardRef(({ typeIndex, material }, ref) => {
+const TrashType = ({ typeIndex, registerMesh }) => {
   const { scene } = useGLTF(TRASH_PATHS[typeIndex])
-  const { geometry, scale } = useMemo(() => mergeTrashGeometry(scene), [scene])
+  const { groups, scale } = useMemo(() => mergeTrashByMaterial(scene, TRASH_MAX[typeIndex]), [scene, typeIndex])
 
-  // Seeded per-instance hue so pieces glow different colors
-  useEffect(() => {
-    const mesh = ref.current
-    if (!mesh) return
-    const hues = new Float32Array(TRASH_PER)
-    for (let i = 0; i < TRASH_PER; i++) hues[i] = fhash(typeIndex * 17 + i * 3.7)
-    mesh.geometry.setAttribute('aHue', new THREE.InstancedBufferAttribute(hues, 1))
-  }, [ref, typeIndex, geometry])
+  // Unlit material per group: real base-color texture where present, else the
+  // source material's flat color. Fog stays on so distant trash fades out.
+  const materials = useMemo(() =>
+    groups.map(({ map, color }) => new THREE.MeshBasicMaterial({
+      map:   map || null,
+      color: map ? new THREE.Color('#ffffff') : color,
+    })),
+  [groups])
 
-  // stash the normalization scale on the mesh so the pool loop can read it
-  useEffect(() => { if (ref.current) ref.current.userData.trashScale = scale }, [ref, scale])
-
-  return (
-    <instancedMesh ref={ref} args={[geometry, material, TRASH_PER]} frustumCulled={false} />
-  )
-})
+  return groups.map((g, gi) => (
+    <instancedMesh
+      key={gi}
+      ref={(el) => registerMesh(typeIndex, gi, el, scale)}
+      args={[g.geometry, materials[gi], TRASH_PER]}
+      frustumCulled={false}
+    />
+  ))
+}
 
 const TrashField = () => {
-  const refs        = useMemo(() => TRASH_PATHS.map(() => React.createRef()), [])
-  const dummy       = useMemo(() => new THREE.Object3D(), [])
-  const timeUniform = useMemo(() => ({ value: 0 }), [])
+  const meshRefs = useRef([])   // meshRefs.current[type] = [instancedMesh per material group]
+  const scaleRef = useRef([])   // scaleRef.current[type]  = normalization scale
+  const dummy    = useMemo(() => new THREE.Object3D(), [])
 
-  // One shared unlit material: solid per-instance rainbow that cycles over time
-  const material = useMemo(() => {
-    const mat = new THREE.MeshBasicMaterial({ toneMapped: false })
-    mat.onBeforeCompile = (shader) => {
-      shader.uniforms.uTime = timeUniform
-      shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\nattribute float aHue;\nvarying float vHue;\nvarying vec3 vViewPos;')
-        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvHue = aHue;')
-        .replace('#include <project_vertex>', '#include <project_vertex>\nvViewPos = mvPosition.xyz;')
-      shader.fragmentShader = shader.fragmentShader
-        .replace(
-          '#include <common>',
-          `#include <common>
-           varying float vHue;
-           varying vec3 vViewPos;
-           uniform float uTime;
-           vec3 hsv2rgb(float h, float s, float v) {
-             vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
-             vec3 p = abs(fract(h + K.xyz) * 6.0 - K.www);
-             return v * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), s);
-           }`
-        )
-        .replace(
-          'vec4 diffuseColor = vec4( diffuse, opacity );',
-          `float h = fract(vHue + uTime * 0.12);
-           vec3 base = hsv2rgb(h, 1.0, 0.55);
-           // per-face normal from screen-space derivatives → reveals surface detail, no lights
-           vec3 n = normalize(cross(dFdx(vViewPos), dFdy(vViewPos)));
-           float diff = clamp(dot(n, normalize(vec3(0.35, 0.7, 0.55))), 0.0, 1.0);
-           float shade = 0.22 + 0.78 * diff;
-           vec4 diffuseColor = vec4( base * shade, opacity );`
-        )
-    }
-    return mat
-  }, [timeUniform])
+  // Each material group of each type registers its InstancedMesh here so the
+  // pool loop can drive all of a piece's groups with one shared transform.
+  const registerMesh = (type, groupIndex, el, scale) => {
+    if (!meshRefs.current[type]) meshRefs.current[type] = []
+    meshRefs.current[type][groupIndex] = el
+    scaleRef.current[type] = scale
+  }
 
-  useFrame(({ camera }, delta) => {
-    timeUniform.value += delta
+  useFrame(({ camera }) => {
     const camZ = camera.position.z
     const kMin = Math.ceil((TRASH_START_Z - camZ) / TRASH_SPACING)
     for (let p = 0; p < TRASH_POOL; p++) {
       const worldK = kMin + ((((p - (kMin % TRASH_POOL)) % TRASH_POOL) + TRASH_POOL) % TRASH_POOL)
-      const type = p % TRASH_TYPES
-      const idx  = Math.floor(p / TRASH_TYPES)
-      const mesh = refs[type].current
-      if (!mesh) continue
-      const x    = (fhash(worldK * 3.1 + 0.7) - 0.5) * 9     // scatter across the floor
-      const rotY = fhash(worldK * 3.1 + 1.3) * Math.PI * 2
-      const s    = mesh.userData.trashScale || 1
+      const type   = p % TRASH_TYPES
+      const idx    = Math.floor(p / TRASH_TYPES)
+      const groupMeshes = meshRefs.current[type]
+      if (!groupMeshes) continue
+      let x = (fhash(worldK * 3.1 + 0.7) - 0.5) * 9         // scatter across the floor
+      if (type === 1) {
+        // trash2 is a big pile — keep its center out of the central train-track
+        // lane (rails/ties live within |x| ≲ 0.95) by seating it in a side gutter
+        const side = x < 0 ? -1 : 1
+        x = side * (2.5 + fhash(worldK * 5.3 + 2.9) * 1.5)  // |x| in [2.5, 4.0]
+      }
+      // independent seed → random facing, uncorrelated with x, but stable per world spot
+      const rotY = fhash(worldK * 12.9898 + 4.1) * Math.PI * 2
+      const s    = scaleRef.current[type] || 1
       dummy.position.set(x, 0, TRASH_START_Z - worldK * TRASH_SPACING)
       dummy.rotation.set(0, rotY, 0)
       dummy.scale.setScalar(s)
       dummy.updateMatrix()
-      mesh.setMatrixAt(idx, dummy.matrix)
+      // every material group of this piece shares the same instance transform
+      for (let gi = 0; gi < groupMeshes.length; gi++) {
+        if (groupMeshes[gi]) groupMeshes[gi].setMatrixAt(idx, dummy.matrix)
+      }
     }
-    for (let t = 0; t < TRASH_TYPES; t++) {
-      if (refs[t].current) refs[t].current.instanceMatrix.needsUpdate = true
+    for (let type = 0; type < TRASH_TYPES; type++) {
+      const gm = meshRefs.current[type]
+      if (!gm) continue
+      for (let gi = 0; gi < gm.length; gi++) {
+        if (gm[gi]) gm[gi].instanceMatrix.needsUpdate = true
+      }
     }
   })
 
   return (
     <Suspense fallback={null}>
       {TRASH_PATHS.map((_, t) => (
-        <TrashType key={t} typeIndex={t} material={material} ref={refs[t]} />
+        <TrashType key={t} typeIndex={t} registerMesh={registerMesh} />
       ))}
     </Suspense>
   )
@@ -659,8 +670,8 @@ const Scene = () => (
   </>
 )
 
-const INTRO_DELAY_MS = 5000   // hold on black (menu + text only) before revealing the scene
-const FADE_SECONDS   = 2.5    // how long the black curtain takes to fade out
+const INTRO_DELAY_MS = 1500   // hold on black (menu + text only) before revealing the scene
+const FADE_SECONDS   = 5      // how long the black curtain takes to fade out
 
 const BackgroundScene = () => {
   // The scene renders at full opacity from load; a solid black overlay on top
