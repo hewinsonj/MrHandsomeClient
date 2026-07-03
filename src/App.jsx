@@ -1,13 +1,16 @@
 import React, { useState } from 'react'
-import { Route, Routes } from 'react-router-dom'
+import { Route, Routes, useLocation } from 'react-router-dom'
 import { v4 as uuid } from 'uuid'
 
 import AutoDismissAlert from './components/shared/AutoDismissAlert/AutoDismissAlert'
 import RequireAuth from './components/shared/RequireAuth'
 import BackgroundScene from './components/scene/BackgroundScene'
 // import GoldFrame from './components/scene/GoldFrame' // gold frame disabled for now — re-enable with the render + index.css block
+import CurtainIntro from './components/CurtainIntro'
 import Splash from './components/Splash'
 import Home from './components/Home'
+import AudioPlayer from './components/AudioPlayer'
+import Wordmark from './components/Wordmark'
 import SignUp from './components/auth/SignUp'
 import SignIn from './components/auth/SignIn'
 import SignOut from './components/auth/SignOut'
@@ -18,6 +21,12 @@ import Checkout from './components/shop/Checkout'
 const App = () => {
   const [user, setUser] = useState(null)
   const [msgAlerts, setMsgAlerts] = useState([])
+  // The curtain intro lives on '/'. The scene "runs" (camera moves, curtains
+  // open) once "look" is pressed — or immediately on any other route, so deep
+  // links aren't frozen at the closed curtains.
+  const [introStarted, setIntroStarted] = useState(false)
+  const location = useLocation()
+  const running = introStarted || location.pathname !== '/'
 
   const clearUser = () => setUser(null)
 
@@ -32,11 +41,14 @@ const App = () => {
 
   return (
     <>
-      <BackgroundScene />
+      <BackgroundScene running={running} />
       {/* <GoldFrame /> */}
+      <AudioPlayer />
+      <Wordmark />
 
       <Routes>
-        <Route path='/' element={<Splash />} />
+        <Route path='/' element={<CurtainIntro started={introStarted} onLook={() => setIntroStarted(true)} />} />
+        <Route path='/welcome' element={<Splash />} />
         <Route path='/home' element={<Home msgAlert={msgAlert} user={user} />} />
         <Route path='/shop' element={<Shop msgAlert={msgAlert} user={user} />} />
         <Route

@@ -38,6 +38,16 @@ select {
   z-index: 1;
 }
 
+/* Fixed bottom-right music toggle */
+.audio-toggle {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.audio-toggle:hover {
+  transform: scale(1.08);
+  background: rgba(30, 30, 30, 0.75) !important;
+  box-shadow: 0 0 20px rgba(0, 229, 255, 0.5) !important;
+}
+
 /* --- Gaudy gold picture frame around the whole viewport (disabled for now) ---
    Re-enable together with the <GoldFrame /> import + render in App.jsx.
    NOTE: the `body { padding: var(--frame-w) }` rule insets all content inside

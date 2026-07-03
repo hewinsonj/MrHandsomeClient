@@ -247,12 +247,18 @@ const fhash = (n) => Math.abs(Math.sin(n * 127.1) * 43758.5453 % 1)
 // side chosen by the seed (track ties are only ~0.95 wide either side of center)
 const candleX = (s) => (fhash(s) < 0.5 ? -1 : 1) * (1.4 + fhash(s * 1.7 + 3.3) * 2.0)
 
-const InfiniteCorridorSystem = () => {
+const InfiniteCorridorSystem = ({ running }) => {
   const slotGroupRefs  = useRef([])
   const lightLeftRefs  = useRef([])
   const lightRightRefs = useRef([])
   const flickerRefs    = useRef([])
   const colorBuf       = useMemo(() => new THREE.Color(), [])
+
+  // Camera parks at the start (framing the closed curtains) until the intro is
+  // running; then a clock that starts from 0 at that moment drives it forward.
+  const runningRef = useRef(running)
+  useEffect(() => { runningRef.current = running }, [running])
+  const startRef = useRef(null)
 
   // Fixed candle layout per pool slot, seeded by slot index so pattern repeats consistently
   const candleConfigs = useMemo(() =>
@@ -273,7 +279,11 @@ const InfiniteCorridorSystem = () => {
   [])
 
   useFrame(({ camera, clock }) => {
-    const t = clock.elapsedTime
+    const now = clock.elapsedTime
+    // Gate the camera: hold at the start until the intro begins, then run a
+    // clock starting from 0 at that moment so the motion is continuous.
+    if (runningRef.current && startRef.current === null) startRef.current = now
+    const t = runningRef.current ? now - startRef.current : 0
 
     // Move camera forward forever — no modulo, no jump
     camera.position.x = Math.sin(t * 0.08) * 0.6
@@ -653,7 +663,52 @@ const TrashField = () => {
   )
 }
 
-const Scene = () => (
+// --- Opening red curtains: the intro. Scaled big so the closed panels fill the
+// view; morph-target weights (driven directly, 0 = closed, 1 = open) part them.
+// They sit just down the track, so once the camera un-gates it glides through
+// the gap and under the valance. `running` flips false->true on "look".
+// NOTE: uses curtains_noanim.glb — the original scene.gltf wedged the glTF
+// parser (its morph-weight animation clips); the clips are stripped and the
+// open motion is driven here instead.
+const CURTAIN_Z             = 1.5
+const CURTAIN_SCALE         = 1.9
+const CURTAIN_OPEN_DURATION = 3.5   // seconds from closed to fully open
+useGLTF.preload('/models/curtains1/curtains_noanim.glb')
+
+const Curtains = ({ running }) => {
+  const { scene } = useGLTF('/models/curtains1/curtains_noanim.glb')
+  const morphMeshes = useMemo(() => {
+    const ms = []
+    scene.traverse((o) => {
+      if (!o.isMesh) return
+      if (o.morphTargetInfluences) ms.push(o)
+      if (o.material) {
+        o.material.side = THREE.DoubleSide                  // visible whichever way a panel faces
+        o.material.emissive = new THREE.Color('#7a0010')    // self-illuminate the dark velvet
+        o.material.emissiveIntensity = 1.4
+      }
+    })
+    return ms
+  }, [scene])
+
+  // Seeded to the current state so a deep link past the intro shows them open
+  // rather than animating on arrival.
+  const progress = useRef(running ? 1 : 0)
+  useEffect(() => {
+    morphMeshes.forEach((m) => m.morphTargetInfluences.fill(progress.current))
+  }, [morphMeshes])
+  useFrame((_, delta) => {
+    const target = running ? 1 : 0
+    if (progress.current === target) return
+    const dir = Math.sign(target - progress.current)
+    progress.current = THREE.MathUtils.clamp(progress.current + (dir * delta) / CURTAIN_OPEN_DURATION, 0, 1)
+    morphMeshes.forEach((m) => m.morphTargetInfluences.fill(progress.current))
+  })
+
+  return <primitive object={scene} position={[0, 0, CURTAIN_Z]} scale={CURTAIN_SCALE} />
+}
+
+const Scene = ({ running }) => (
   <>
     <color attach='background' args={['#0d0d0d']} />
     <fog attach='fog' args={['#0d0d0d', 20, 65]} />
@@ -664,16 +719,19 @@ const Scene = () => (
     <Wall side='right' />
     <Ceiling />
     <TrainTrack />
-    <InfiniteCorridorSystem />
+    <InfiniteCorridorSystem running={running} />
     <DancerPair />
     <TrashField />
+    <Suspense fallback={null}>
+      <Curtains running={running} />
+    </Suspense>
   </>
 )
 
-const INTRO_DELAY_MS = 1500   // hold on black (menu + text only) before revealing the scene
-const FADE_SECONDS   = 5      // how long the black curtain takes to fade out
+const INTRO_DELAY_MS = 200    // brief hold on black before the closed curtains fade in
+const FADE_SECONDS   = 1.5    // how long the black overlay takes to fade out
 
-const BackgroundScene = () => {
+const BackgroundScene = ({ running }) => {
   // The scene renders at full opacity from load; a solid black overlay on top
   // hides it at first (showing only the menu + text), then fades out after
   // INTRO_DELAY_MS. Fading a plain div — not the live WebGL canvas — keeps the
@@ -690,7 +748,7 @@ const BackgroundScene = () => {
         camera={{ position: [0, 1.4, 6], fov: 75 }}
         gl={{ antialias: false, powerPreference: 'high-performance' }}
       >
-        <Scene />
+        <Scene running={running} />
       </Canvas>
       {/* Black intro curtain — sits over the canvas, under the menu/text, fades away */}
       <div

@@ -23,11 +23,12 @@ const WavyTitle = ({ text = TITLE_TEXT }) => (
         to   { filter: hue-rotate(360deg); }
       }
       .wavy-title {
-        font-size: 5rem;
+        font-size: clamp(2.1rem, 11vw, 5rem);   /* fluid so it never overflows narrow screens */
         font-weight: 900;
         letter-spacing: 0.05em;
         margin-bottom: 0.5rem;
         display: inline-flex;
+        max-width: 100%;
         white-space: pre;
         /* whole-title gentle drift + continuous color shift */
         animation: titleDrift 9s ease-in-out infinite, titleHue 8s linear infinite;
