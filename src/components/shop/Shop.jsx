@@ -13,7 +13,7 @@ const Shop = ({ msgAlert, user }) => {
   useEffect(() => {
     getProducts()
       .then((res) => setProducts(res.data.products))
-      .catch(() => msgAlert({ heading: 'Error', message: 'Could not load products.', variant: 'danger' }))
+      .catch(() => setProducts([]))   // no warning — fall back to the "No products yet" message
   }, [])
 
   const handleBuy = (product) => {

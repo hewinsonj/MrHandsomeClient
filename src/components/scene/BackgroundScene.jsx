@@ -5,6 +5,18 @@ import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import * as THREE from 'three'
 
+// Detect devices that can't comfortably run the heavy effects (live floor
+// reflections, high pixel ratios). True for phones/tablets, touch screens, and
+// low-core / low-memory machines — they get a lighter render path.
+const detectLowPerf = () => {
+  if (typeof window === 'undefined') return false
+  const smallScreen = window.matchMedia('(max-width: 820px)').matches
+  const coarse      = window.matchMedia('(hover: none), (pointer: coarse)').matches
+  const fewCores    = (navigator.hardwareConcurrency || 8) <= 4
+  const lowMemory   = (navigator.deviceMemory || 8) <= 4
+  return smallScreen || coarse || fewCores || lowMemory
+}
+
 // --- Checkerboard floor texture ---
 const useCheckerTexture = () =>
   useMemo(() => {
@@ -27,21 +39,27 @@ const CORRIDOR_WIDTH  = 5
 const CORRIDOR_LENGTH = 600                            // ~25 min at 0.4 u/s
 const CORRIDOR_CENTER_Z = 6 - CORRIDOR_LENGTH / 2     // -294
 
-const Floor = () => {
+const Floor = ({ lowPerf }) => {
   const checker = useCheckerTexture()
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, CORRIDOR_CENTER_Z]}>
       <planeGeometry args={[40, CORRIDOR_LENGTH]} />
-      <MeshReflectorMaterial
-        map={checker}
-        mirror={0.6}
-        resolution={512}
-        mixBlur={3}
-        mixStrength={1.0}
-        roughness={0.1}
-        color='#ffffff'
-        metalness={0.5}
-      />
+      {lowPerf ? (
+        // No live reflections — a polished metallic material keeps the shiny,
+        // neon-lit floor look at a fraction of the cost.
+        <meshStandardMaterial map={checker} color='#ffffff' roughness={0.35} metalness={0.6} />
+      ) : (
+        <MeshReflectorMaterial
+          map={checker}
+          mirror={0.6}
+          resolution={512}
+          mixBlur={3}
+          mixStrength={1.0}
+          roughness={0.1}
+          color='#ffffff'
+          metalness={0.5}
+        />
+      )}
     </mesh>
   )
 }
@@ -124,7 +142,7 @@ const Wall = ({ side }) => {
 }
 
 // --- Ceiling: watery shader + glowing polka dots ---
-const Ceiling = () => {
+const Ceiling = ({ lowPerf }) => {
   const matRef = useRef()
   const shader = useMemo(() => ({
     uniforms: { uTime: { value: 0 } },
@@ -176,7 +194,7 @@ const Ceiling = () => {
   })
   return (
     <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, WALL_HEIGHT, CORRIDOR_CENTER_Z]}>
-      <planeGeometry args={[WALL_X * 2 + 2, CORRIDOR_LENGTH, 40, 20]} />
+      <planeGeometry args={[WALL_X * 2 + 2, CORRIDOR_LENGTH, lowPerf ? 12 : 40, lowPerf ? 8 : 20]} />
       <shaderMaterial ref={matRef} args={[shader]} />
     </mesh>
   )
@@ -712,16 +730,16 @@ const Curtains = ({ running }) => {
   return <primitive object={scene} position={[0, 0, CURTAIN_Z]} scale={CURTAIN_SCALE} />
 }
 
-const Scene = ({ running }) => (
+const Scene = ({ running, lowPerf }) => (
   <>
     <color attach='background' args={['#0d0d0d']} />
     <fog attach='fog' args={['#0d0d0d', 20, 65]} />
     <ambientLight intensity={0.06} />
     <pointLight position={[0, 10, -20]} intensity={25} distance={45} color='#7700ee' />
-    <Floor />
+    <Floor lowPerf={lowPerf} />
     <Wall side='left' />
     <Wall side='right' />
-    <Ceiling />
+    <Ceiling lowPerf={lowPerf} />
     <TrainTrack />
     <InfiniteCorridorSystem running={running} />
     <DancerPair />
@@ -741,6 +759,7 @@ const BackgroundScene = ({ running }) => {
   // fade until every model/texture has finished loading (via useProgress) so
   // nothing pops in — with a safety fallback so it can never stay black forever.
   const [revealed, setRevealed] = useState(false)
+  const lowPerf = useMemo(() => detectLowPerf(), [])
   const { active, total } = useProgress()
   const ready = total > 0 && !active   // loads were registered AND the manager is now idle
 
@@ -760,8 +779,9 @@ const BackgroundScene = ({ running }) => {
       <Canvas
         camera={{ position: [0, 1.4, 6], fov: 75 }}
         gl={{ antialias: false, powerPreference: 'high-performance' }}
+        dpr={lowPerf ? 1 : [1, 2]}   // cap pixel ratio (retina phones render 4-9x the pixels)
       >
-        <Scene running={running} />
+        <Scene running={running} lowPerf={lowPerf} />
       </Canvas>
       {/* Black intro curtain — sits over the canvas, under the menu/text, fades away */}
       <div
