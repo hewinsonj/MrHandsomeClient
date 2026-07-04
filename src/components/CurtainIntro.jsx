@@ -1,10 +1,10 @@
 import React, { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-// How long the curtain-open + camera-glide sequence plays before we reveal the
-// MR. HANDSOME landing (/welcome). Tuned to the camera reaching + passing the
-// curtains (see CURTAIN_* + CAM_SPEED in BackgroundScene).
-const SEQUENCE_MS = 6000
+// How long the curtain-open sequence plays after "look" before we reveal the
+// MR. HANDSOME landing (/welcome), where the title drops into place. The curtains
+// keep opening behind the scene after the hand-off.
+const SEQUENCE_MS = 1500
 
 // The landing page: closed red curtains (rendered in the 3D scene) with nothing
 // on screen but a "look" button. Pressing it starts the intro, then — once the

@@ -9,6 +9,17 @@ body {
   color: #f0f0f0;
   font-family: 'Special Elite', 'Courier New', Courier, monospace;
   overflow-x: hidden;
+  /* text-shadow inherits, so this gives ALL text a dark shadow for readability
+     over the busy animated scene. Layered (crisp + soft halo) for strong contrast.
+     The title overrides with its own shadow; form fields opt out below. */
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 2px 10px rgba(0, 0, 0, 0.8);
+}
+
+/* A shadow on input text looks off — opt form controls out. */
+input,
+textarea,
+select {
+  text-shadow: none;
 }
 
 /* Force the typewriter font everywhere, including form controls and

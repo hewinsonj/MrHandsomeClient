@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { useLocation } from 'react-router-dom'
 
 // Looping background track. The filename has spaces/parens, so encode it.
 const AUDIO_SRC = '/audio/' + encodeURIComponent('web loop 6 17 26 (1).wav')
@@ -11,9 +10,6 @@ const AUTOPLAY_DELAY_MS = 2000   // start the track this long after load
 const AudioPlayer = () => {
   const audioRef = useRef(null)
   const [playing, setPlaying] = useState(false)
-  // The curtain intro ('/') should show nothing but the "look" button — hide the
-  // control there (audio keeps playing; only the button is hidden).
-  const onIntro = useLocation().pathname === '/'
 
   useEffect(() => {
     const audio = audioRef.current
@@ -63,7 +59,6 @@ const AudioPlayer = () => {
   return (
     <>
       <audio ref={audioRef} src={AUDIO_SRC} loop preload='auto' />
-      {!onIntro && (
       <button
         type='button'
         className='audio-toggle'
@@ -102,7 +97,6 @@ const AudioPlayer = () => {
           </svg>
         )}
       </button>
-      )}
     </>
   )
 }
