@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useProgress } from '@react-three/drei'
 
 // How long the curtain-open sequence plays after "look" before we reveal the
 // MR. HANDSOME landing (/welcome), where the title drops into place. The curtains
@@ -11,6 +12,16 @@ const SEQUENCE_MS = 1500
 // sequence has played — hands off to the existing MR. HANDSOME splash.
 const CurtainIntro = ({ started, onLook }) => {
   const navigate = useNavigate()
+
+  // Hold the "look" button until every model/texture has loaded (an hourglass
+  // shows over the black overlay meanwhile). Fallback so it can't stay hidden.
+  const { active, total } = useProgress()
+  const [assetsReady, setAssetsReady] = useState(false)
+  useEffect(() => { if (total > 0 && !active) setAssetsReady(true) }, [active, total])
+  useEffect(() => {
+    const t = setTimeout(() => setAssetsReady(true), 12000)
+    return () => clearTimeout(t)
+  }, [])
 
   // Schedule the hand-off as an effect tied to `started` (with cleanup) rather
   // than inside the click handler, so it can't double-fire or leak a stale timer.
@@ -31,7 +42,7 @@ const CurtainIntro = ({ started, onLook }) => {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-      {!started && (
+      {assetsReady && !started && (
         <button
           type='button'
           onClick={onLook}

@@ -22,6 +22,19 @@ select {
   text-shadow: none;
 }
 
+/* Old-school hourglass loader: flips over on a loop */
+@keyframes hourglassTurn {
+  0%, 40%  { transform: rotate(0deg); }
+  50%, 90% { transform: rotate(180deg); }
+  100%     { transform: rotate(360deg); }
+}
+.hourglass {
+  display: inline-block;
+  font-size: 3.5rem;
+  line-height: 1;
+  animation: hourglassTurn 2.4s ease-in-out infinite;
+}
+
 /* Force the typewriter font everywhere, including form controls and
    Bootstrap components that would otherwise use their own font stack */
 *,

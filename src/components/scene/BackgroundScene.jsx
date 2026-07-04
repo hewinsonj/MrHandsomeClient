@@ -760,7 +760,7 @@ const BackgroundScene = ({ running }) => {
   // nothing pops in — with a safety fallback so it can never stay black forever.
   const [revealed, setRevealed] = useState(false)
   const lowPerf = useMemo(() => detectLowPerf(), [])
-  const { active, total } = useProgress()
+  const { active, total, progress } = useProgress()
   const ready = total > 0 && !active   // loads were registered AND the manager is now idle
 
   useEffect(() => {
@@ -786,15 +786,26 @@ const BackgroundScene = ({ running }) => {
       >
         <Scene running={running} lowPerf={lowPerf} />
       </Canvas>
-      {/* Black intro curtain — sits over the canvas, under the menu/text, fades away */}
+      {/* Black loading/intro curtain — hides the scene until it's loaded, shows an
+          old-school hourglass meanwhile, then fades away to reveal the scene. */}
       <div
         style={{
           position: 'absolute', inset: 0, background: '#000',
           opacity: revealed ? 0 : 1,
           transition: `opacity ${FADE_SECONDS}s ease-in-out`,
           pointerEvents: 'none',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}
-      />
+      >
+        {!revealed && (
+          <div style={{ textAlign: 'center', color: '#f0f0f0' }}>
+            <div className='hourglass' aria-hidden='true'>⏳</div>
+            <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', letterSpacing: '0.25em', opacity: 0.7 }}>
+              loading {Math.round(progress)}%
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
