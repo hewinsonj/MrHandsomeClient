@@ -601,16 +601,21 @@ const mergeTrashByMaterial = (root, maxSize) => {
   return { groups: out, scale }
 }
 
+// Multiplied into the unlit trash so it isn't blown out — darkens the textures
+// for a grittier, more realistic look sitting in the dim corridor. Lower = darker.
+const TRASH_TINT = new THREE.Color('#5a5a5a')
+
 const TrashType = ({ typeIndex, registerMesh }) => {
   const { scene } = useGLTF(TRASH_PATHS[typeIndex])
   const { groups, scale } = useMemo(() => mergeTrashByMaterial(scene, TRASH_MAX[typeIndex]), [scene, typeIndex])
 
   // Unlit material per group: real base-color texture where present, else the
-  // source material's flat color. Fog stays on so distant trash fades out.
+  // source material's flat color — both tinted down. Fog stays on so distant
+  // trash fades out.
   const materials = useMemo(() =>
     groups.map(({ map, color }) => new THREE.MeshBasicMaterial({
       map:   map || null,
-      color: map ? new THREE.Color('#ffffff') : color,
+      color: map ? TRASH_TINT.clone() : color.clone().multiply(TRASH_TINT),
     })),
   [groups])
 
