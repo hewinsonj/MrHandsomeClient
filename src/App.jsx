@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { Route, Routes, useLocation } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { v4 as uuid } from 'uuid'
 
 import AutoDismissAlert from './components/shared/AutoDismissAlert/AutoDismissAlert'
@@ -26,7 +26,16 @@ const App = () => {
   // links aren't frozen at the closed curtains.
   const [introStarted, setIntroStarted] = useState(false)
   const location = useLocation()
+  const navigate = useNavigate()
   const running = introStarted || location.pathname !== '/'
+
+  // On a full page load / refresh, always return to the landing (curtain intro).
+  // Client-side navigation doesn't remount App, so this only fires on real loads,
+  // not on in-app link clicks.
+  useEffect(() => {
+    if (location.pathname !== '/') navigate('/', { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const clearUser = () => setUser(null)
 
