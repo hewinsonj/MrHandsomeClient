@@ -32,12 +32,22 @@ const WavyTitle = ({ text = TITLE_TEXT }) => (
         white-space: pre;
         /* whole-title gentle drift + continuous color shift */
         animation: titleDrift 9s ease-in-out infinite, titleHue 8s linear infinite;
-        text-shadow: 0 0 18px rgba(255, 255, 255, 0.25);
+        text-shadow: 0 4px 14px rgba(0, 0, 0, 0.85);   /* dark shadow behind the letters, not a glow */
       }
       .wavy-title__letter {
         display: inline-block;
         animation: wavyLetter 1.6s ease-in-out infinite;
         will-change: transform;
+      }
+      /* On phones/touch screens (already busy running the WebGL scene), drop the
+         hue-rotate filter animation — animating a filter repaints every frame and
+         makes the movement choppy. The rainbow colours + GPU-composited drift/wave
+         stay, so it still moves, just smoothly. */
+      @media (max-width: 820px), (pointer: coarse) {
+        .wavy-title { animation: titleDrift 9s ease-in-out infinite; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .wavy-title, .wavy-title__letter { animation: none; }
       }
     `}</style>
     <h1 className='wavy-title'>
