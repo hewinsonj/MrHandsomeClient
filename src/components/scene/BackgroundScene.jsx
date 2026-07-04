@@ -778,8 +778,11 @@ const BackgroundScene = ({ running }) => {
     <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0, pointerEvents: 'none' }}>
       <Canvas
         camera={{ position: [0, 1.4, 6], fov: 75 }}
-        gl={{ antialias: false, powerPreference: 'high-performance' }}
-        dpr={lowPerf ? 1 : [1, 2]}   // cap pixel ratio (retina phones render 4-9x the pixels)
+        // MSAA on to smooth jagged edges (cheap on mobile's tile-based GPUs).
+        gl={{ antialias: true, powerPreference: 'high-performance' }}
+        // Render a bit above 1x on low-perf so it isn't soft/pixelated — the
+        // freed budget from dropping reflections pays for the extra pixels.
+        dpr={lowPerf ? [1, 1.5] : [1, 2]}
       >
         <Scene running={running} lowPerf={lowPerf} />
       </Canvas>
