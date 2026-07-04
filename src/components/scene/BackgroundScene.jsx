@@ -1,6 +1,8 @@
 import React, { useMemo, useRef, useEffect, useState, Suspense } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { MeshReflectorMaterial, useGLTF, Center, useProgress } from '@react-three/drei'
+import { EffectComposer } from '@react-three/postprocessing'
+import PerlinWarp from './PerlinWarp'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import * as THREE from 'three'
@@ -730,7 +732,32 @@ const Curtains = ({ running }) => {
   return <primitive object={scene} position={[0, 0, CURTAIN_Z]} scale={CURTAIN_SCALE} />
 }
 
-const Scene = ({ running, lowPerf }) => (
+// Watch the real frame rate for a couple seconds; if the device can't keep up,
+// call onLag() so the scene can be frozen (rendered as a static frame). Adaptive
+// — only fires on devices that actually stutter, not every phone.
+const LAG_FPS_THRESHOLD = 22   // sustained fps below this => freeze
+const LAG_WARMUP_S      = 1.0  // ignore the first second (shader/texture warmup)
+const LAG_WINDOW_S      = 2.0  // then average fps over this window and decide
+
+const AutoFreeze = ({ active, onLag }) => {
+  const s = useRef({ t0: null, frames: 0, decided: false })
+  useFrame(({ clock }) => {
+    const st = s.current
+    if (!active || st.decided) return
+    const now = clock.elapsedTime
+    if (st.t0 === null) { st.t0 = now; st.frames = 0; return }
+    const el = now - st.t0
+    if (el < LAG_WARMUP_S) return
+    st.frames += 1
+    if (el >= LAG_WARMUP_S + LAG_WINDOW_S) {
+      st.decided = true
+      if (st.frames / LAG_WINDOW_S < LAG_FPS_THRESHOLD) onLag()
+    }
+  })
+  return null
+}
+
+const Scene = ({ running, lowPerf, sampleFps, onLag }) => (
   <>
     <color attach='background' args={['#0d0d0d']} />
     <fog attach='fog' args={['#0d0d0d', 20, 65]} />
@@ -747,6 +774,7 @@ const Scene = ({ running, lowPerf }) => (
     <Suspense fallback={null}>
       <Curtains running={running} />
     </Suspense>
+    <AutoFreeze active={sampleFps} onLag={onLag} />
   </>
 )
 
@@ -759,6 +787,7 @@ const BackgroundScene = ({ running }) => {
   // fade until every model/texture has finished loading (via useProgress) so
   // nothing pops in — with a safety fallback so it can never stay black forever.
   const [revealed, setRevealed] = useState(false)
+  const [frozen, setFrozen] = useState(false)   // set true if the device can't keep up
   const lowPerf = useMemo(() => detectLowPerf(), [])
   const { active, total, progress } = useProgress()
   const ready = total > 0 && !active   // loads were registered AND the manager is now idle
@@ -783,8 +812,20 @@ const BackgroundScene = ({ running }) => {
         // Render a bit above 1x on low-perf so it isn't soft/pixelated — the
         // freed budget from dropping reflections pays for the extra pixels.
         dpr={lowPerf ? [1, 1.5] : [1, 2]}
+        // When frozen, stop the render loop — the last frame stays on the canvas
+        // as a static image (near-zero cost), so a struggling device stops lagging.
+        frameloop={frozen ? 'demand' : 'always'}
       >
-        <Scene running={running} lowPerf={lowPerf} />
+        <Scene
+          running={running}
+          lowPerf={lowPerf}
+          sampleFps={revealed && !frozen}
+          onLag={() => setFrozen(true)}
+        />
+        {/* Subtle screen-space perlin warp (12% / 0.3 / 3.0). Lighter AA on low-perf. */}
+        <EffectComposer multisampling={lowPerf ? 0 : 4}>
+          <PerlinWarp />
+        </EffectComposer>
       </Canvas>
       {/* Black loading/intro curtain — hides the scene until it's loaded, shows an
           old-school hourglass meanwhile, then fades away to reveal the scene. */}
