@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useProgress } from '@react-three/drei'
+import { SCENE_ENABLED } from '../sceneConfig'
 
 // How long the curtain-open sequence plays after "look" before we reveal the
 // MR. HANDSOME landing (/welcome), where the title drops into place. The curtains
@@ -16,7 +17,8 @@ const CurtainIntro = ({ started, onLook }) => {
   // Hold the "look" button until every model/texture has loaded (an hourglass
   // shows over the black overlay meanwhile). Fallback so it can't stay hidden.
   const { active, total } = useProgress()
-  const [assetsReady, setAssetsReady] = useState(false)
+  // With the 3D scene off there's nothing to load, so show the button immediately.
+  const [assetsReady, setAssetsReady] = useState(!SCENE_ENABLED)
   useEffect(() => { if (total > 0 && !active) setAssetsReady(true) }, [active, total])
   useEffect(() => {
     const t = setTimeout(() => setAssetsReady(true), 12000)

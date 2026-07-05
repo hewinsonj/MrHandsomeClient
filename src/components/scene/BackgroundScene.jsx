@@ -3,9 +3,14 @@ import { Canvas, useFrame } from '@react-three/fiber'
 import { MeshReflectorMaterial, useGLTF, Center, useProgress } from '@react-three/drei'
 import { EffectComposer } from '@react-three/postprocessing'
 import PerlinWarp from './PerlinWarp'
+import { SCENE_ENABLED, STATIC_BG } from '../../sceneConfig'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import * as THREE from 'three'
+
+// Only preload the 3D models when the live scene is on — otherwise it's ~20 MB
+// of downloads for a scene that never renders (see sceneConfig.SCENE_ENABLED).
+const preloadGLTF = (path) => { if (SCENE_ENABLED) useGLTF.preload(path) }
 
 // Detect devices that can't comfortably run the heavy effects (live floor
 // reflections, high pixel ratios). True for phones/tablets, touch screens, and
@@ -73,9 +78,9 @@ const BUST_PATHS  = [
   '/models/bust2/scene.gltf',
   '/models/bust3/scene.gltf',
 ]
-useGLTF.preload('/models/bust1/scene.gltf')
-useGLTF.preload('/models/bust2/scene.gltf')
-useGLTF.preload('/models/bust3/scene.gltf')
+preloadGLTF('/models/bust1/scene.gltf')
+preloadGLTF('/models/bust2/scene.gltf')
+preloadGLTF('/models/bust3/scene.gltf')
 
 const Statue = ({ position, rotationY = 0, bustIndex = 0 }) => {
   const { scene } = useGLTF(BUST_PATHS[bustIndex % 3])
@@ -112,9 +117,9 @@ const CANDLE_PATHS  = [
   '/models/candle3/scene.gltf',
 ]
 const CANDLE_SCALES = [0.75, 3.45, 0.24]
-useGLTF.preload('/models/candle1/scene.gltf')
-useGLTF.preload('/models/candle2/scene.gltf')
-useGLTF.preload('/models/candle3/scene.gltf')
+preloadGLTF('/models/candle1/scene.gltf')
+preloadGLTF('/models/candle2/scene.gltf')
+preloadGLTF('/models/candle3/scene.gltf')
 
 const Candle = ({ position, rotationY = 0, candleIndex = 0 }) => {
   const { scene } = useGLTF(CANDLE_PATHS[candleIndex % 3])
@@ -423,7 +428,7 @@ const DANCER_TARGET_H = 2.4    // world height every dancer is normalized to
 const DANCER_X        = 4.4    // how far to the side they stand
 const DANCE_SPACING   = 24     // gap between dance spots along the corridor
 const DANCE_START_Z   = -10    // z of dance spot 0
-DANCER_PATHS.forEach((p) => useGLTF.preload(p))
+DANCER_PATHS.forEach((p) => preloadGLTF(p))
 
 const Dancer = React.forwardRef(({ dancerIndex, timeOffset = 0 }, ref) => {
   const { scene, animations } = useGLTF(DANCER_PATHS[dancerIndex])
@@ -551,7 +556,7 @@ const TRASH_PER     = TRASH_POOL / TRASH_TYPES
 const TRASH_SPACING = 5      // gap between trash spots (× pool ≈ 75u window, covers the fog)
 const TRASH_START_Z = -6
 const TRASH_MAX     = [1.9, 4.0, 1.9]   // per-type: largest dimension each piece normalizes to; trash2 is a big pile
-TRASH_PATHS.forEach((p) => useGLTF.preload(p))
+TRASH_PATHS.forEach((p) => preloadGLTF(p))
 
 // Merge a model's meshes into one floor-seated geometry PER SOURCE MATERIAL,
 // preserving UVs so the original base-color texture maps correctly. All groups
@@ -702,7 +707,7 @@ const TrashField = () => {
 const CURTAIN_Z             = 1.5
 const CURTAIN_SCALE         = 1.9
 const CURTAIN_OPEN_DURATION = 3.5   // seconds from closed to fully open
-useGLTF.preload('/models/curtains1/curtains_noanim.glb')
+preloadGLTF('/models/curtains1/curtains_noanim.glb')
 
 const Curtains = ({ running }) => {
   const { scene } = useGLTF('/models/curtains1/curtains_noanim.glb')
@@ -813,6 +818,18 @@ const BackgroundScene = ({ running }) => {
     const t = setTimeout(() => setRevealed(true), REVEAL_FALLBACK_MS)
     return () => clearTimeout(t)
   }, [])
+
+  // Scene disabled: show a static screenshot instead of the live Three.js canvas.
+  if (!SCENE_ENABLED) {
+    return (
+      <img
+        src={STATIC_BG}
+        alt=''
+        aria-hidden='true'
+        style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0, pointerEvents: 'none' }}
+      />
+    )
+  }
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0, pointerEvents: 'none' }}>
