@@ -570,7 +570,10 @@ const mergeTrashByMaterial = (root, maxSize) => {
         new THREE.BufferAttribute(new Float32Array(pos.count * 2), 2)   // fallback: flat UVs
       const ng = new THREE.BufferGeometry()
       ng.setAttribute('position', pos)
-      ng.setAttribute('uv', uv)        // unlit textured → position + uv is all we need
+      ng.setAttribute('uv', uv)
+      const nrm = g.getAttribute('normal')   // keep normals so the trash can be lit
+      if (nrm) ng.setAttribute('normal', nrm)
+      else ng.computeVertexNormals()
       ng.computeBoundingBox()
       overall.union(ng.boundingBox)
 
@@ -601,21 +604,22 @@ const mergeTrashByMaterial = (root, maxSize) => {
   return { groups: out, scale }
 }
 
-// Multiplied into the unlit trash so it isn't blown out — darkens the textures
-// for a grittier, more realistic look sitting in the dim corridor. Lower = darker.
-const TRASH_TINT = new THREE.Color('#5a5a5a')
-
 const TrashType = ({ typeIndex, registerMesh }) => {
   const { scene } = useGLTF(TRASH_PATHS[typeIndex])
   const { groups, scale } = useMemo(() => mergeTrashByMaterial(scene, TRASH_MAX[typeIndex]), [scene, typeIndex])
 
-  // Unlit material per group: real base-color texture where present, else the
-  // source material's flat color — both tinted down. Fog stays on so distant
-  // trash fades out.
+  // Lit material so the trash reacts to the corridor lights (dark in the dim
+  // spots, coloured where the cycling lights reach). A faint emissive floor keeps
+  // it from going pure black in the very dark areas.
   const materials = useMemo(() =>
-    groups.map(({ map, color }) => new THREE.MeshBasicMaterial({
-      map:   map || null,
-      color: map ? TRASH_TINT.clone() : color.clone().multiply(TRASH_TINT),
+    groups.map(({ map, color }) => new THREE.MeshStandardMaterial({
+      map:               map || null,
+      color:             map ? new THREE.Color('#ffffff') : color.clone(),
+      emissiveMap:       map || null,
+      emissive:          map ? new THREE.Color('#ffffff') : color.clone(),
+      emissiveIntensity: 0.15,
+      roughness:         0.9,
+      metalness:         0.05,
     })),
   [groups])
 
@@ -779,7 +783,9 @@ const Scene = ({ running, lowPerf, sampleFps, onLag }) => (
     <Suspense fallback={null}>
       <Curtains running={running} />
     </Suspense>
-    <AutoFreeze active={sampleFps} onLag={onLag} />
+    {/* Freeze-on-lag disabled — it lagged badly on Android Chrome. Re-enable by
+        uncommenting this and restoring the frameloop conditional below. */}
+    {/* <AutoFreeze active={sampleFps} onLag={onLag} /> */}
   </>
 )
 
@@ -817,20 +823,22 @@ const BackgroundScene = ({ running }) => {
         // Render a bit above 1x on low-perf so it isn't soft/pixelated — the
         // freed budget from dropping reflections pays for the extra pixels.
         dpr={lowPerf ? [1, 1.5] : [1, 2]}
-        // When frozen, stop the render loop — the last frame stays on the canvas
-        // as a static image (near-zero cost), so a struggling device stops lagging.
-        frameloop={frozen ? 'demand' : 'always'}
+        // Freeze-on-lag disabled — always render. (Was: frozen ? 'demand' : 'always')
+        frameloop='always'
       >
         <Scene
           running={running}
           lowPerf={lowPerf}
-          sampleFps={revealed && !frozen}
+          sampleFps={false}
           onLag={() => setFrozen(true)}
         />
-        {/* Subtle screen-space perlin warp (12% / 0.3 / 3.0). Lighter AA on low-perf. */}
-        <EffectComposer multisampling={lowPerf ? 0 : 4}>
-          <PerlinWarp />
-        </EffectComposer>
+        {/* Subtle screen-space perlin warp (12% / 0.3 / 3.0). Skipped entirely on
+            low-perf devices — a full-screen post pass is too costly for them. */}
+        {!lowPerf && (
+          <EffectComposer multisampling={4}>
+            <PerlinWarp />
+          </EffectComposer>
+        )}
       </Canvas>
       {/* Black loading/intro curtain — hides the scene until it's loaded, shows an
           old-school hourglass meanwhile, then fades away to reveal the scene. */}
