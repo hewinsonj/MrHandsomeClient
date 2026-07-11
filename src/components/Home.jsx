@@ -4,6 +4,16 @@ import Button from 'react-bootstrap/Button'
 
 const navLinkStyle = { color: '#f0f0f0', textDecoration: 'none', opacity: 0.85 }
 
+// Streaming links for "singing Shortcomings, and other songs"
+const STREAMING_LINKS = [
+  { label: 'Listen Everywhere', url: 'https://mrhandsome.hearnow.com/mr-handsome-singing-shortcomings-and-other-songs', color: '#f5e6c8' },
+  { label: 'Spotify',      url: 'https://open.spotify.com/album/67Or9nasToypgqrl5ZaAwi', color: '#1DB954' },
+  { label: 'Apple Music',  url: 'https://music.apple.com/us/album/mr-handsome-singing-shortcomings-and-other-songs/6785654143', color: '#FA243C' },
+  { label: 'Amazon Music', url: 'https://music.amazon.com/albums/B0H6Z6CVD8?tag=fndcmpgns-20', color: '#25D1DA' },
+  { label: 'Pandora',      url: 'https://www.pandora.com/artist/mr-handsome/mr-handsome-singing-shortcomings-and-other-songs/ALrdzZn7Xp3p6wk', color: '#4B6EFF' },
+  { label: 'Deezer',       url: 'https://www.deezer.com/us/album/1017432371', color: '#A238FF' },
+]
+
 // Account/auth links (Sign In, Sign Up, Change Password, Sign Out) are hidden
 // for now — flip to true to bring them back.
 const SHOW_USER_LINKS = false
@@ -12,9 +22,15 @@ const SHOW_USER_LINKS = false
 // this page holds the rest of the content, centered.
 const Home = ({ user }) => (
   <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', textAlign: 'center', padding: '2rem 2rem 10vh' }}>
-    {/* Social / Streaming links — coming soon */}
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'center', marginBottom: '2.5rem' }}>
-      <span style={{ opacity: 0.6, fontStyle: 'italic' }}>social links coming soon...</span>
+    {/* Streaming links */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center', marginBottom: '2.5rem' }}>
+      <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap', justifyContent: 'center', maxWidth: '640px' }}>
+        {STREAMING_LINKS.map(({ label, url, color }) => (
+          <a key={label} href={url} target='_blank' rel='noopener noreferrer' style={{ color, textDecoration: 'none' }}>
+            {label}
+          </a>
+        ))}
+      </div>
       <a href='mailto:palacerevolution2000@yahoo.com' style={{ color: '#f0f0f0' }}>Contact Us</a>
     </div>
 
