@@ -34,9 +34,14 @@ const Home = ({ user }) => (
       <a href='mailto:palacerevolution2000@yahoo.com' style={{ color: '#f0f0f0' }}>Contact Us</a>
     </div>
 
-    <Link to='/shop'>
-      <Button variant='outline-light' size='lg'>Shop / Downloads</Button>
-    </Link>
+    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+      <Link to='/listen'>
+        <Button variant='outline-light' size='lg'>&#9835; Listen</Button>
+      </Link>
+      <Link to='/shop'>
+        <Button variant='outline-light' size='lg'>Shop / Downloads</Button>
+      </Link>
+    </div>
 
     {/* Account / user links (Sign In / Sign Up / etc.) — hidden for now */}
     {SHOW_USER_LINKS && (

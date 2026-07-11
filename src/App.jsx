@@ -9,6 +9,7 @@ import BackgroundScene from './components/scene/BackgroundScene'
 import CurtainIntro from './components/CurtainIntro'
 import Splash from './components/Splash'
 import Home from './components/Home'
+import AlbumPlayer from './components/AlbumPlayer'
 import AudioPlayer from './components/AudioPlayer'
 import Wordmark from './components/Wordmark'
 import SignUp from './components/auth/SignUp'
@@ -59,6 +60,7 @@ const App = () => {
         <Route path='/' element={<CurtainIntro started={introStarted} onLook={() => setIntroStarted(true)} />} />
         <Route path='/welcome' element={<Splash />} />
         <Route path='/home' element={<Home msgAlert={msgAlert} user={user} />} />
+        <Route path='/listen' element={<AlbumPlayer />} />
         <Route path='/shop' element={<Shop msgAlert={msgAlert} user={user} />} />
         <Route
           path='/checkout'

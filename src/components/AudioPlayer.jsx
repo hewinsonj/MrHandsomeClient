@@ -22,6 +22,10 @@ const AudioPlayer = () => {
     audio.addEventListener('play', onPlay)
     audio.addEventListener('pause', onPause)
 
+    // Duck the looping background music when the album player starts a track.
+    const onAlbumPlay = () => audio.pause()
+    window.addEventListener('mh-album-play', onAlbumPlay)
+
     // Start the track ~2s after load. Browsers usually block audio-with-sound
     // until a user gesture, so if the delayed play is rejected we fall back to
     // starting on the first click/keypress.
@@ -46,6 +50,7 @@ const AudioPlayer = () => {
       }
       audio.removeEventListener('play', onPlay)
       audio.removeEventListener('pause', onPause)
+      window.removeEventListener('mh-album-play', onAlbumPlay)
     }
   }, [])
 
