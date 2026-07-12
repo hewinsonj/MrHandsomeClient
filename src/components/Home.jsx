@@ -43,6 +43,10 @@ const Home = ({ user }) => (
       </Link>
     </div>
 
+    <Link to='/slots' style={{ marginTop: '1.25rem', color: '#f5c96b', textDecoration: 'none', opacity: 0.8, fontSize: '0.95rem', letterSpacing: '0.05em' }}>
+      &#127920; Handsome Jackpot
+    </Link>
+
     {/* Account / user links (Sign In / Sign Up / etc.) — hidden for now */}
     {SHOW_USER_LINKS && (
       <nav style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', marginTop: '1.75rem', fontSize: '0.95rem' }}>
