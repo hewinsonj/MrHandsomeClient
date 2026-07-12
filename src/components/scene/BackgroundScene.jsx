@@ -822,12 +822,24 @@ const BackgroundScene = ({ running }) => {
   // Scene disabled: show a static screenshot instead of the live Three.js canvas.
   if (!SCENE_ENABLED) {
     return (
-      <img
-        src={STATIC_BG}
-        alt=''
-        aria-hidden='true'
-        style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0, pointerEvents: 'none' }}
-      />
+      <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
+        <img
+          src={STATIC_BG}
+          alt=''
+          aria-hidden='true'
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+        {/* Black cover on the landing (behind the "look" button); fades out to
+            phase the background in once "look" is pressed (running -> true). */}
+        <div
+          aria-hidden='true'
+          style={{
+            position: 'absolute', inset: 0, background: '#000',
+            opacity: running ? 0 : 1,
+            transition: `opacity ${FADE_SECONDS}s ease-in-out`,
+          }}
+        />
+      </div>
     )
   }
 
