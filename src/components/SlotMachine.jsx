@@ -67,10 +67,9 @@ export default function SlotMachine() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 'clamp(5rem, 15vw, 9rem) 1rem 4rem', position: 'relative', zIndex: 1 }}>
       <style>{`
-        @keyframes winPulse { 0%,100% { box-shadow: 0 0 30px rgba(245,201,107,0.35), inset 0 0 20px rgba(0,0,0,0.6); } 50% { box-shadow: 0 0 55px rgba(245,201,107,0.85), inset 0 0 20px rgba(0,0,0,0.6); } }
-        .slot-frame { background: linear-gradient(180deg, #2a1a08, #120a04); border: 3px solid ${GOLD}; border-radius: 16px; padding: 1.25rem; box-shadow: 0 0 30px rgba(245,201,107,0.35), inset 0 0 20px rgba(0,0,0,0.6); }
-        .slot-frame.win { animation: winPulse 0.6s ease-in-out 3; }
-        .reels { position: relative; display: flex; gap: 0.75rem; background: #0a0705; border-radius: 8px; padding: 0.6rem; }
+        @keyframes winPulse { 0%,100% { box-shadow: 0 0 0 rgba(245,201,107,0); } 50% { box-shadow: 0 0 28px rgba(245,201,107,0.9); } }
+        .reels { position: relative; display: flex; gap: 0.9rem; }
+        .reels.win .reel-outer { animation: winPulse 0.6s ease-in-out 3; }
         .reel-outer { position: relative; width: ${REEL_W}px; height: ${WINDOW}px; perspective: 760px; overflow: hidden; border-radius: 8px; background: #0a0705; }
         .drum { position: absolute; left: 0; right: 0; top: calc(50% - ${H / 2}px); height: ${H}px; transform-style: preserve-3d; }
         .face {
@@ -100,9 +99,8 @@ export default function SlotMachine() {
         Handsome Jackpot
       </h1>
 
-      <div className={win ? 'slot-frame win' : 'slot-frame'}>
-        <div className='reels'>
-          {rot.map((r, i) => (
+      <div className={win ? 'reels win' : 'reels'}>
+        {rot.map((r, i) => (
             <div className='reel-outer' key={i}>
               <div
                 className='drum'
@@ -116,9 +114,8 @@ export default function SlotMachine() {
               </div>
               <div className='reel-shade' />
             </div>
-          ))}
-          <div className='payline' />
-        </div>
+        ))}
+        <div className='payline' />
       </div>
 
       <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', margin: '1.25rem 0', minHeight: '1.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
