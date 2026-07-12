@@ -7,9 +7,11 @@ import { Link } from 'react-router-dom'
 // the top/bottom like a physical mechanical reel. A little JS picks the results.
 const SYMBOLS = ['🎸', '🎤', '💿', '🎩', '⭐', '🎵', '🍒']
 const S = SYMBOLS.length
-const FACES = S                              // one symbol per drum face
+const FACES = 14                             // 2 turns of symbols -> rounder wheel
 const ANGLE = 360 / FACES                    // degrees between faces
-const H = 104                                // window / face height (px)
+const H = 92                                 // face height (px)
+const REEL_W = 104                           // reel width (px)
+const WINDOW = 260                           // window height — tall enough to see the wheel curve
 const RADIUS = Math.round((H / 2) / Math.tan(Math.PI / FACES))  // drum radius
 const SPIN_COST = 5
 const SMALL_WIN = 15
@@ -69,22 +71,22 @@ export default function SlotMachine() {
         .slot-frame { background: linear-gradient(180deg, #2a1a08, #120a04); border: 3px solid ${GOLD}; border-radius: 16px; padding: 1.25rem; box-shadow: 0 0 30px rgba(245,201,107,0.35), inset 0 0 20px rgba(0,0,0,0.6); }
         .slot-frame.win { animation: winPulse 0.6s ease-in-out 3; }
         .reels { position: relative; display: flex; gap: 0.75rem; background: #0a0705; border-radius: 8px; padding: 0.6rem; }
-        .reel-outer { position: relative; width: ${H}px; height: ${H}px; perspective: 620px; overflow: hidden; border-radius: 6px; background: #0a0705; }
-        .drum { position: absolute; inset: 0; transform-style: preserve-3d; }
+        .reel-outer { position: relative; width: ${REEL_W}px; height: ${WINDOW}px; perspective: 760px; overflow: hidden; border-radius: 8px; background: #0a0705; }
+        .drum { position: absolute; left: 0; right: 0; top: calc(50% - ${H / 2}px); height: ${H}px; transform-style: preserve-3d; }
         .face {
           position: absolute; inset: 0;
           display: flex; align-items: center; justify-content: center;
-          font-size: 56px; line-height: 1;
-          background: linear-gradient(180deg, #241a10, #140d07);
-          border-top: 1px solid rgba(245,201,107,0.18);
-          border-bottom: 1px solid rgba(0,0,0,0.6);
+          font-size: 50px; line-height: 1;
+          background: linear-gradient(180deg, #2a2013, #140d07);
+          border-top: 1px solid rgba(245,201,107,0.16);
+          border-bottom: 1px solid rgba(0,0,0,0.65);
           backface-visibility: hidden;
         }
-        /* cylindrical shading + gloss over the glass so the drum reads as curved */
+        /* cylindrical shading — dark where the drum curves away top/bottom, lit at the payline */
         .reel-shade {
-          position: absolute; inset: 0; pointer-events: none; border-radius: 6px;
-          background: linear-gradient(180deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 32%, rgba(0,0,0,0) 68%, rgba(0,0,0,0.85) 100%);
-          box-shadow: inset 0 0 14px rgba(0,0,0,0.7);
+          position: absolute; inset: 0; pointer-events: none; border-radius: 8px;
+          background: linear-gradient(180deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.12) 42%, rgba(0,0,0,0.12) 58%, rgba(0,0,0,0.92) 100%);
+          box-shadow: inset 0 0 18px rgba(0,0,0,0.8);
         }
         .payline { position: absolute; left: 0.35rem; right: 0.35rem; top: 50%; height: 2px; transform: translateY(-1px); background: rgba(245,201,107,0.55); box-shadow: 0 0 8px rgba(245,201,107,0.6); pointer-events: none; z-index: 3; }
         .spin-btn { font-family: inherit; font-size: 1.15rem; letter-spacing: 0.1em; color: #1a1206; background: ${GOLD}; border: none; border-radius: 8px; padding: 0.8rem 2.4rem; cursor: pointer; box-shadow: 0 4px 0 #b8922f; transition: transform 0.06s, box-shadow 0.06s; }
