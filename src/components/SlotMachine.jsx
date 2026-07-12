@@ -1,20 +1,27 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 
-// CSS reels + a little JS for the brains (random result, staggered stops, wins).
+// Each reel is a real 3D drum: the symbols are faces of a cylinder
+// (rotateX(i·angle) translateZ(radius)), and spinning rotates the whole drum on
+// its X axis. `perspective` on the window gives the depth so faces curve away at
+// the top/bottom like a physical mechanical reel. A little JS picks the results.
 const SYMBOLS = ['🎸', '🎤', '💿', '🎩', '⭐', '🎵', '🍒']
 const S = SYMBOLS.length
-const LOOPS = 24
-const STRIP = Array.from({ length: LOOPS * S }, (_, i) => SYMBOLS[i % S])
-const H = 100          // symbol height (px)
+const FACES = S                              // one symbol per drum face
+const ANGLE = 360 / FACES                    // degrees between faces
+const H = 104                                // window / face height (px)
+const RADIUS = Math.round((H / 2) / Math.tan(Math.PI / FACES))  // drum radius
 const SPIN_COST = 5
-const SMALL_WIN = 15   // two of a kind
-const JACKPOT = 150    // three of a kind
+const SMALL_WIN = 15
+const JACKPOT = 150
 const GOLD = '#f5c96b'
 
+// rotateX that brings symbol k to the front
+const rotFor = (k) => -k * ANGLE
+
 export default function SlotMachine() {
-  const [positions, setPositions] = useState([0, 1, 2])   // flat index each reel shows
-  const [durations, setDurations] = useState([0, 0, 0])   // per-reel transition seconds
+  const [rot, setRot] = useState([rotFor(0), rotFor(1), rotFor(2)])  // per-reel drum rotation (deg)
+  const [durations, setDurations] = useState([0, 0, 0])
   const [spinning, setSpinning] = useState(false)
   const [credits, setCredits] = useState(100)
   const [message, setMessage] = useState('Pull the handle')
@@ -27,35 +34,26 @@ export default function SlotMachine() {
     setMessage('')
     setCredits((c) => c - SPIN_COST)
 
-    // Snap each reel to a low copy of its current symbol (no animation) so the
-    // spin distance stays inside the strip.
-    const bases = positions.map((p) => ((p % S) + S) % S)
-    setDurations([0, 0, 0])
-    setPositions(bases)
-
-    // Next frame, spin down to random targets with staggered stops.
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      const results = [0, 1, 2].map(() => Math.floor(Math.random() * S))
-      const targets = bases.map((b, i) => {
-        const delta = ((results[i] - (b % S)) + S) % S
-        return b + (5 + i * 2) * S + delta     // several full loops, then land on results[i]
-      })
-      const durs = [2.2, 2.8, 3.4]
-      setDurations(durs)
-      setPositions(targets)
-      setTimeout(() => finish(results), durs[2] * 1000 + 150)
-    }))
+    const results = [0, 1, 2].map(() => Math.floor(Math.random() * S))
+    const durs = [2.4, 3.0, 3.6]
+    const next = rot.map((r, i) => {
+      const loops = 5 + i                            // later reels spin more (stagger the stop)
+      const base = r - loops * 360                   // spin downward several full turns
+      const targetMod = rotFor(results[i])           // final rotation mod 360
+      return base - ((((base - targetMod) % 360) + 360) % 360)  // snap down onto the target face
+    })
+    setDurations(durs)
+    setRot(next)
+    setTimeout(() => finish(results), durs[2] * 1000 + 150)
   }
 
   const finish = (r) => {
     setSpinning(false)
     if (r[0] === r[1] && r[1] === r[2]) {
-      setCredits((c) => c + JACKPOT)
-      setWin(true)
+      setCredits((c) => c + JACKPOT); setWin(true)
       setMessage(`JACKPOT!  ${SYMBOLS[r[0]]}${SYMBOLS[r[0]]}${SYMBOLS[r[0]]}  +${JACKPOT}`)
     } else if (r[0] === r[1] || r[1] === r[2] || r[0] === r[2]) {
-      setCredits((c) => c + SMALL_WIN)
-      setWin(true)
+      setCredits((c) => c + SMALL_WIN); setWin(true)
       setMessage(`Two of a kind!  +${SMALL_WIN}`)
     } else {
       setMessage('So close… spin again')
@@ -70,11 +68,25 @@ export default function SlotMachine() {
         @keyframes winPulse { 0%,100% { box-shadow: 0 0 30px rgba(245,201,107,0.35), inset 0 0 20px rgba(0,0,0,0.6); } 50% { box-shadow: 0 0 55px rgba(245,201,107,0.85), inset 0 0 20px rgba(0,0,0,0.6); } }
         .slot-frame { background: linear-gradient(180deg, #2a1a08, #120a04); border: 3px solid ${GOLD}; border-radius: 16px; padding: 1.25rem; box-shadow: 0 0 30px rgba(245,201,107,0.35), inset 0 0 20px rgba(0,0,0,0.6); }
         .slot-frame.win { animation: winPulse 0.6s ease-in-out 3; }
-        .reels { position: relative; display: flex; gap: 0.75rem; background: #0a0705; border-radius: 8px; padding: 0.5rem; }
-        .reel { width: ${H}px; height: ${H}px; overflow: hidden; border-radius: 6px; background: radial-gradient(circle at 50% 38%, #211710, #0a0705); box-shadow: inset 0 8px 14px rgba(0,0,0,0.85), inset 0 -8px 14px rgba(0,0,0,0.85); }
-        .reel-strip { will-change: transform; }
-        .symbol { height: ${H}px; display: flex; align-items: center; justify-content: center; font-size: 54px; line-height: 1; }
-        .payline { position: absolute; left: 0.35rem; right: 0.35rem; top: 50%; height: 2px; transform: translateY(-1px); background: rgba(245,201,107,0.55); box-shadow: 0 0 8px rgba(245,201,107,0.6); pointer-events: none; }
+        .reels { position: relative; display: flex; gap: 0.75rem; background: #0a0705; border-radius: 8px; padding: 0.6rem; }
+        .reel-outer { position: relative; width: ${H}px; height: ${H}px; perspective: 620px; overflow: hidden; border-radius: 6px; background: #0a0705; }
+        .drum { position: absolute; inset: 0; transform-style: preserve-3d; }
+        .face {
+          position: absolute; inset: 0;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 56px; line-height: 1;
+          background: linear-gradient(180deg, #241a10, #140d07);
+          border-top: 1px solid rgba(245,201,107,0.18);
+          border-bottom: 1px solid rgba(0,0,0,0.6);
+          backface-visibility: hidden;
+        }
+        /* cylindrical shading + gloss over the glass so the drum reads as curved */
+        .reel-shade {
+          position: absolute; inset: 0; pointer-events: none; border-radius: 6px;
+          background: linear-gradient(180deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 32%, rgba(0,0,0,0) 68%, rgba(0,0,0,0.85) 100%);
+          box-shadow: inset 0 0 14px rgba(0,0,0,0.7);
+        }
+        .payline { position: absolute; left: 0.35rem; right: 0.35rem; top: 50%; height: 2px; transform: translateY(-1px); background: rgba(245,201,107,0.55); box-shadow: 0 0 8px rgba(245,201,107,0.6); pointer-events: none; z-index: 3; }
         .spin-btn { font-family: inherit; font-size: 1.15rem; letter-spacing: 0.1em; color: #1a1206; background: ${GOLD}; border: none; border-radius: 8px; padding: 0.8rem 2.4rem; cursor: pointer; box-shadow: 0 4px 0 #b8922f; transition: transform 0.06s, box-shadow 0.06s; }
         .spin-btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 #b8922f; }
         .spin-btn:disabled { opacity: 0.5; cursor: default; }
@@ -88,14 +100,19 @@ export default function SlotMachine() {
 
       <div className={win ? 'slot-frame win' : 'slot-frame'}>
         <div className='reels'>
-          {positions.map((pos, i) => (
-            <div className='reel' key={i}>
+          {rot.map((r, i) => (
+            <div className='reel-outer' key={i}>
               <div
-                className='reel-strip'
-                style={{ transform: `translateY(${-pos * H}px)`, transition: durations[i] ? `transform ${durations[i]}s cubic-bezier(0.15, 0.85, 0.25, 1)` : 'none' }}
+                className='drum'
+                style={{ transform: `rotateX(${r}deg)`, transition: durations[i] ? `transform ${durations[i]}s cubic-bezier(0.2, 0.85, 0.25, 1)` : 'none' }}
               >
-                {STRIP.map((sym, j) => <div className='symbol' key={j}>{sym}</div>)}
+                {Array.from({ length: FACES }, (_, f) => (
+                  <div className='face' key={f} style={{ transform: `rotateX(${f * ANGLE}deg) translateZ(${RADIUS}px)` }}>
+                    {SYMBOLS[f % S]}
+                  </div>
+                ))}
               </div>
+              <div className='reel-shade' />
             </div>
           ))}
           <div className='payline' />
