@@ -31,7 +31,8 @@ const Wordmark = () => {
   }, [pathname, displayPath])
 
   const centered = displayPath === '/welcome'                        // splash centers it
-  const visible = displayPath === '/welcome' || displayPath === '/home'
+  const visible = displayPath !== '/'                                // every page EXCEPT the black landing
+  const showTagline = displayPath === '/welcome' || displayPath === '/home'  // tagline only on the landing pages
 
   // The very first appearance fades in slowly; after that, quick crossfades.
   const [hasAppeared, setHasAppeared] = useState(false)
@@ -78,9 +79,11 @@ const Wordmark = () => {
       >
         <WavyTitle />
       </Link>
-      <p style={{ fontFamily: "'Great Vibes', cursive", fontSize: 'clamp(1.4rem, 6.5vw, 2.6rem)', lineHeight: 1.2, opacity: 0.9, margin: 0, textShadow: '0 3px 12px rgba(0, 0, 0, 0.95), 0 1px 3px rgba(0, 0, 0, 0.95)' }}>
-        singing Shortcomings, and other songs
-      </p>
+      {showTagline && (
+        <p style={{ fontFamily: "'Great Vibes', cursive", fontSize: 'clamp(1.4rem, 6.5vw, 2.6rem)', lineHeight: 1.2, opacity: 0.9, margin: 0, textShadow: '0 3px 12px rgba(0, 0, 0, 0.95), 0 1px 3px rgba(0, 0, 0, 0.95)' }}>
+          singing Shortcomings, and other songs
+        </p>
+      )}
     </div>
   )
 }

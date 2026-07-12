@@ -99,7 +99,7 @@ export default function AlbumPlayer() {
   const track = TRACKS[index]
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2rem 1rem 6rem', position: 'relative', zIndex: 1 }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 'clamp(5rem, 15vw, 9rem) 1rem 6rem', position: 'relative', zIndex: 1 }}>
       <Link to='/home' style={{ alignSelf: 'flex-start', color: '#f0f0f0', textDecoration: 'none', opacity: 0.85 }}>
         &larr; Home
       </Link>

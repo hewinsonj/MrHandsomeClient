@@ -2,6 +2,16 @@ import React from 'react'
 
 const TITLE_TEXT = 'MR. HANDSOME'
 
+// Pause the animation on genuinely weak devices (or when the user prefers reduced
+// motion) — otherwise it keeps moving. The movement is cheap GPU-composited CSS,
+// so most phones animate fine; this is the "can't handle it -> hold still" fallback.
+const SHOULD_PAUSE =
+  typeof window !== 'undefined' && (
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+    (navigator.hardwareConcurrency || 8) <= 2 ||
+    (navigator.deviceMemory || 8) <= 2
+  )
+
 // Per-letter waving, drifting, multicolored title. Shared by the landing
 // splash and the inner hub so the branding is identical in both places.
 const WavyTitle = ({ text = TITLE_TEXT }) => (
@@ -39,18 +49,22 @@ const WavyTitle = ({ text = TITLE_TEXT }) => (
         animation: wavyLetter 1.6s ease-in-out infinite;
         will-change: transform;
       }
-      /* On phones/touch screens (already busy running the WebGL scene), drop the
-         hue-rotate filter animation — animating a filter repaints every frame and
-         makes the movement choppy. The rainbow colours + GPU-composited drift/wave
-         stay, so it still moves, just smoothly. */
+      /* On phones/touch screens, drop the hue-rotate filter animation — animating a
+         filter repaints every frame and can stutter. The rainbow colours + the
+         GPU-composited drift/wave stay, so it still moves, just smoothly. */
       @media (max-width: 820px), (pointer: coarse) {
         .wavy-title { animation: titleDrift 9s ease-in-out infinite; }
+      }
+      /* Fully static when the device can't handle it / reduced motion is requested. */
+      .wavy-title--static,
+      .wavy-title--static .wavy-title__letter {
+        animation: none !important;
       }
       @media (prefers-reduced-motion: reduce) {
         .wavy-title, .wavy-title__letter { animation: none; }
       }
     `}</style>
-    <h1 className='wavy-title'>
+    <h1 className={SHOULD_PAUSE ? 'wavy-title wavy-title--static' : 'wavy-title'}>
       {text.split('').map((ch, i) => (
         <span
           key={i}

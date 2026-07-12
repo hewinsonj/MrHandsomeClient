@@ -25,7 +25,7 @@ const Shop = ({ msgAlert, user }) => {
   }
 
   return (
-    <div className='container py-5' style={{ position: 'relative', zIndex: 1 }}>
+    <div className='container py-5' style={{ position: 'relative', zIndex: 1, paddingTop: 'clamp(5rem, 15vw, 9rem)' }}>
       <Link to='/home' style={{ color: '#f0f0f0', textDecoration: 'none', opacity: 0.85 }}>
         &larr; Home
       </Link>
