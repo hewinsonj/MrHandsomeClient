@@ -4,6 +4,18 @@
   padding: 0;
 }
 
+/* Stop iOS/macOS Safari from applying its native "glossy" control chrome to our
+   custom buttons — the -webkit- prefixed line is the one Safari actually honors,
+   and it's usually what's missing. With appearance off, our own background /
+   border / border-radius fully control the look. */
+button,
+input[type='button'],
+input[type='submit'],
+input[type='reset'] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 body {
   background: #0a0a0a;
   color: #f0f0f0;
