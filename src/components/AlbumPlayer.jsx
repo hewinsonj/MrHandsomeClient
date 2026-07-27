@@ -118,12 +118,12 @@ export default function AlbumPlayer() {
 
           <div ref={containerRef} style={{ width: '100%', minHeight: '56px', cursor: 'pointer' }} />
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1.5rem', marginTop: '0.75rem' }}>
-            <button type='button' onClick={() => step(-1)} aria-label='Previous track' style={btn}>&#9198;</button>
-            <button type='button' onClick={playPause} aria-label={playing ? 'Pause' : 'Play'} disabled={loading} style={{ ...btn, fontSize: '1.8rem', opacity: loading ? 0.4 : 1 }}>
-              {loading ? '…' : playing ? '❚❚' : '►'}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1.75rem', marginTop: '0.9rem' }}>
+            <button type='button' onClick={() => step(-1)} style={btn}>Prev</button>
+            <button type='button' onClick={playPause} disabled={loading} style={{ ...btn, color: GOLD, fontSize: '1.05rem', opacity: loading ? 0.4 : 1 }}>
+              {loading ? 'Loading' : playing ? 'Pause' : 'Play'}
             </button>
-            <button type='button' onClick={() => step(1)} aria-label='Next track' style={btn}>&#9197;</button>
+            <button type='button' onClick={() => step(1)} style={btn}>Next</button>
           </div>
         </div>
 
@@ -171,7 +171,10 @@ const btn = {
   border: 'none',
   color: '#f5e6c8',
   cursor: 'pointer',
-  fontSize: '1.3rem',
+  fontFamily: 'inherit',
+  fontSize: '0.95rem',
+  letterSpacing: '0.14em',
+  textTransform: 'uppercase',
   lineHeight: 1,
-  padding: '0.4rem',
+  padding: '0.5rem 0.6rem',
 }
