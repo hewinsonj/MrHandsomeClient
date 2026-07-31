@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://mrhandsomesings.netlify.app/sitemap.xml
