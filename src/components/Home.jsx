@@ -31,7 +31,7 @@ const Home = ({ user }) => (
           </a>
         ))}
       </div>
-      <a href='mailto:palacerevolution2000@yahoo.com' style={{ color: '#f0f0f0' }}>Contact Us</a>
+      <a href='mailto:mrhandsomesings@gmail.com' style={{ color: '#f0f0f0' }}>Contact Us</a>
     </div>
 
     <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
