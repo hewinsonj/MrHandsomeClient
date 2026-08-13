@@ -40,13 +40,55 @@ const Home = ({ user }) => (
           </a>
         ))}
       </div>
-      {/* Follow / social */}
-      <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap', justifyContent: 'center', maxWidth: '640px' }}>
-        {SOCIAL_LINKS.map(({ label, url, color }) => (
-          <a key={label} href={url} target='_blank' rel='noopener noreferrer' style={{ color, textDecoration: 'none' }}>
-            {label}
-          </a>
-        ))}
+      {/* Follow / social — links slowly orbit a center "follow" label. Each label
+          counter-rotates so it stays upright while its position revolves. */}
+      <div className='orbit-wrap' aria-label='Follow Mr. Handsome'>
+        <style>{`
+          @keyframes orbitSpin    { to { transform: rotate(360deg); } }
+          @keyframes orbitSpinRev { to { transform: rotate(-360deg); } }
+          .orbit-wrap {
+            --r: clamp(80px, 30vw, 132px);   /* orbit radius */
+            --d: calc(2 * var(--r) + 4.5rem); /* box leaves room for the labels */
+            position: relative;
+            width: var(--d);
+            height: var(--d);
+            margin: 0.5rem auto;
+          }
+          .orbit { position: absolute; inset: 0; animation: orbitSpin 34s linear infinite; }
+          .orbit-center {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Great Vibes', cursive;
+            font-size: clamp(1.4rem, 6vw, 2rem);
+            opacity: 0.85; pointer-events: none;
+          }
+          .orbit-item {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%) rotate(var(--a)) translate(var(--r)) rotate(calc(-1 * var(--a)));
+            text-decoration: none; white-space: nowrap;
+          }
+          /* cancels the parent's spin so the text never goes upside-down */
+          .orbit-label { display: inline-block; animation: orbitSpinRev 34s linear infinite; }
+          .orbit-item:hover .orbit-label { text-decoration: underline; }
+          @media (prefers-reduced-motion: reduce) {
+            .orbit, .orbit-label { animation: none; }
+          }
+        `}</style>
+        <span className='orbit-center'>follow</span>
+        <div className='orbit'>
+          {SOCIAL_LINKS.map(({ label, url, color }, i) => (
+            <a
+              key={label}
+              href={url}
+              target='_blank'
+              rel='noopener noreferrer'
+              className='orbit-item'
+              style={{ '--a': `${-90 + (360 / SOCIAL_LINKS.length) * i}deg`, color }}
+            >
+              <span className='orbit-label'>{label}</span>
+            </a>
+          ))}
+        </div>
       </div>
 
       <a href='mailto:mrhandsomesings@gmail.com' style={{ color: '#f0f0f0' }}>Contact Us</a>
