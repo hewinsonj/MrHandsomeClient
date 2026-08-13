@@ -27,6 +27,9 @@ const SOCIAL_LINKS = [
 // for now — flip to true to bring them back.
 const SHOW_USER_LINKS = false
 
+// Dark translucent backing so link text stays legible over the busy background.
+const pill = { background: 'rgba(0, 0, 0, 0.6)', padding: '0.35rem 0.85rem', borderRadius: '999px' }
+
 // The title + tagline wordmark is rendered persistently in App (top-left here);
 // this page holds the rest of the content, centered.
 const Home = ({ user }) => (
@@ -35,7 +38,7 @@ const Home = ({ user }) => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center', marginBottom: '2.5rem' }}>
       <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap', justifyContent: 'center', maxWidth: '640px' }}>
         {STREAMING_LINKS.map(({ label, url, color }) => (
-          <a key={label} href={url} target='_blank' rel='noopener noreferrer' style={{ color, textDecoration: 'none' }}>
+          <a key={label} href={url} target='_blank' rel='noopener noreferrer' style={{ color, textDecoration: 'none', ...pill }}>
             {label}
           </a>
         ))}
@@ -60,7 +63,9 @@ const Home = ({ user }) => (
             transform: translate(-50%, -50%);
             font-family: 'Great Vibes', cursive;
             font-size: clamp(1.4rem, 6vw, 2rem);
-            opacity: 0.85; pointer-events: none;
+            opacity: 0.9; pointer-events: none;
+            background: rgba(0, 0, 0, 0.55);
+            padding: 0.1rem 0.7rem; border-radius: 999px;
           }
           .orbit-item {
             position: absolute; top: 50%; left: 50%;
@@ -68,7 +73,10 @@ const Home = ({ user }) => (
             text-decoration: none; white-space: nowrap;
           }
           /* cancels the parent's spin so the text never goes upside-down */
-          .orbit-label { display: inline-block; animation: orbitSpinRev 34s linear infinite; }
+          .orbit-label {
+            display: inline-block; animation: orbitSpinRev 34s linear infinite;
+            background: rgba(0, 0, 0, 0.6); padding: 0.3rem 0.7rem; border-radius: 999px;
+          }
           .orbit-item:hover .orbit-label { text-decoration: underline; }
           @media (prefers-reduced-motion: reduce) {
             .orbit, .orbit-label { animation: none; }
@@ -91,7 +99,7 @@ const Home = ({ user }) => (
         </div>
       </div>
 
-      <a href='mailto:mrhandsomesings@gmail.com' style={{ color: '#f0f0f0' }}>Contact Us</a>
+      <a href='mailto:mrhandsomesings@gmail.com' style={{ color: '#f0f0f0', textDecoration: 'none', ...pill }}>Contact Us</a>
     </div>
 
     <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
