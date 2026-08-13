@@ -14,6 +14,15 @@ const STREAMING_LINKS = [
   { label: 'Deezer',       url: 'https://www.deezer.com/us/album/1017432371', color: '#A238FF' },
 ]
 
+// Social / follow links
+const SOCIAL_LINKS = [
+  { label: 'YouTube',   url: 'https://www.youtube.com/@Mr.HandsomeSings',            color: '#FF0000' },
+  { label: 'Instagram', url: 'https://www.instagram.com/mrhandsomesings/',           color: '#E1306C' },
+  { label: 'TikTok',    url: 'https://www.tiktok.com/@mr..handsome093',              color: '#25F4EE' },
+  { label: 'Facebook',  url: 'https://www.facebook.com/profile.php?id=61593332696120', color: '#1877F2' },
+  { label: 'Linktree',  url: 'https://linktr.ee/mrhandsomesings',                    color: '#43E660' },
+]
+
 // Account/auth links (Sign In, Sign Up, Change Password, Sign Out) are hidden
 // for now — flip to true to bring them back.
 const SHOW_USER_LINKS = false
@@ -31,6 +40,15 @@ const Home = ({ user }) => (
           </a>
         ))}
       </div>
+      {/* Follow / social */}
+      <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap', justifyContent: 'center', maxWidth: '640px' }}>
+        {SOCIAL_LINKS.map(({ label, url, color }) => (
+          <a key={label} href={url} target='_blank' rel='noopener noreferrer' style={{ color, textDecoration: 'none' }}>
+            {label}
+          </a>
+        ))}
+      </div>
+
       <a href='mailto:mrhandsomesings@gmail.com' style={{ color: '#f0f0f0' }}>Contact Us</a>
     </div>
 
