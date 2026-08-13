@@ -104,10 +104,10 @@ const Home = ({ user }) => (
 
     <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
       <Link to='/listen'>
-        <Button variant='outline-light' size='lg'>&#9835; Listen</Button>
+        <Button variant='outline-light' size='lg'>&#9654; Play It Here</Button>
       </Link>
       <Link to='/shop'>
-        <Button variant='outline-light' size='lg'>Shop / Downloads</Button>
+        <Button variant='outline-light' size='lg'>Buy Music &amp; Merch</Button>
       </Link>
     </div>
 
