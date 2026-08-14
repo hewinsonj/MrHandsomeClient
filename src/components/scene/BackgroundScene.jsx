@@ -3,7 +3,8 @@ import { Canvas, useFrame } from '@react-three/fiber'
 import { MeshReflectorMaterial, useGLTF, Center, useProgress } from '@react-three/drei'
 import { EffectComposer } from '@react-three/postprocessing'
 import PerlinWarp from './PerlinWarp'
-import { SCENE_ENABLED, STATIC_BG } from '../../sceneConfig'
+import VideoBackground from './VideoBackground'
+import { SCENE_ENABLED } from '../../sceneConfig'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import * as THREE from 'three'
@@ -819,28 +820,9 @@ const BackgroundScene = ({ running }) => {
     return () => clearTimeout(t)
   }, [])
 
-  // Scene disabled: show a static screenshot instead of the live Three.js canvas.
+  // Scene disabled: show the background video sequence instead of the live canvas.
   if (!SCENE_ENABLED) {
-    return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
-        <img
-          src={STATIC_BG}
-          alt=''
-          aria-hidden='true'
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-        />
-        {/* Black cover on the landing (behind the "look" button); fades out to
-            phase the background in once "look" is pressed (running -> true). */}
-        <div
-          aria-hidden='true'
-          style={{
-            position: 'absolute', inset: 0, background: '#000',
-            opacity: running ? 0 : 1,
-            transition: `opacity ${FADE_SECONDS}s ease-in-out`,
-          }}
-        />
-      </div>
-    )
+    return <VideoBackground running={running} />
   }
 
   return (
