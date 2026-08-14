@@ -19,17 +19,33 @@ const VideoBackground = ({ running }) => {
   const [phase, setPhase] = useState('intro')     // 'intro' | 'loop'
   const [loopFront, setLoopFront] = useState(0)    // which loop element is visible (0=A, 1=B)
   const [loopStarted, setLoopStarted] = useState(false)  // enables the crossfade transition only after the first (instant) reveal
+  const [introReady, setIntroReady] = useState(false)    // intro clip has its first frame decoded
+  const [fallbackHit, setFallbackHit] = useState(false)  // safety: reveal even if the video never loads
   const swapping = useRef(false)
 
-  // Start the intro clip only AFTER the fade-from-black completes.
+  // Hold the black cover until the intro's first frame is actually decoded, so the
+  // fade never completes onto the still poster on a slow (mobile) connection. The
+  // still only shows if the video errors or the safety timeout below fires.
+  const revealed = running && (introReady || fallbackHit)
+
+  // Safety net: if the intro never signals ready (unsupported/blocked/offline),
+  // reveal anyway after a max wait so we can't stay stuck on black forever.
   useEffect(() => {
     if (!running) return undefined
+    const t = setTimeout(() => setFallbackHit(true), 10000)
+    return () => clearTimeout(t)
+  }, [running])
+
+  // Start the intro clip only AFTER the fade-from-black completes (which itself
+  // only begins once the clip is loaded).
+  useEffect(() => {
+    if (!revealed) return undefined
     const t = setTimeout(() => {
       const v = introRef.current
       if (v) { v.currentTime = 0; v.play().catch(() => {}) }
     }, FADE_SECONDS * 1000)
     return () => clearTimeout(t)
-  }, [running])
+  }, [revealed])
 
   // Intro finished -> hand straight to the looping clip (hard cut: loop element
   // A already has frame 0 decoded underneath, so revealing it shows no black).
@@ -91,16 +107,20 @@ const VideoBackground = ({ running }) => {
         ref={introRef}
         src={BG_CLIP_INTRO}
         muted playsInline preload='auto' aria-hidden='true'
+        onLoadedData={() => setIntroReady(true)}
+        onCanPlay={() => setIntroReady(true)}
+        onError={() => setIntroReady(true)}
         onEnded={handleIntroEnded}
         style={{ ...cover, opacity: phase === 'intro' ? 1 : 0, transition: 'none' }}
       />
 
-      {/* Black cover on the landing (behind "look"); fades out once look is pressed. */}
+      {/* Black cover on the landing (behind "look"); fades out once look is pressed
+          AND the intro clip is loaded, so the reveal is the video, not the still. */}
       <div
         aria-hidden='true'
         style={{
           position: 'absolute', inset: 0, background: '#000',
-          opacity: running ? 0 : 1,
+          opacity: revealed ? 0 : 1,
           transition: `opacity ${FADE_SECONDS}s ease-in-out`,
         }}
       />
