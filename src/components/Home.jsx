@@ -102,12 +102,30 @@ const Home = ({ user }) => (
       <a href='mailto:mrhandsomesings@gmail.com' style={{ color: '#f0f0f0', textDecoration: 'none', ...pill }}>Contact Us</a>
     </div>
 
-    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+    <div className='cta-row'>
+      <style>{`
+        .cta-row {
+          display: flex;
+          gap: 1rem;
+          justify-content: center;
+          width: 100%;
+          max-width: 460px;
+        }
+        .cta-row a { text-decoration: none; }
+        .cta-row .cta-btn { white-space: nowrap; }
+        /* On phones, stack them as equal full-width buttons instead of wrapping
+           into two ragged, mismatched rows. */
+        @media (max-width: 480px) {
+          .cta-row { flex-direction: column; align-items: stretch; }
+          .cta-row a { width: 100%; }
+          .cta-row .cta-btn { width: 100%; }
+        }
+      `}</style>
       <Link to='/listen'>
-        <Button variant='outline-light' size='lg'>&#9654; Play It Here</Button>
+        <Button variant='outline-light' size='lg' className='cta-btn'>&#9654; Play It Here</Button>
       </Link>
       <Link to='/shop'>
-        <Button variant='outline-light' size='lg'>Buy Music &amp; Merch</Button>
+        <Button variant='outline-light' size='lg' className='cta-btn'>Buy Music &amp; Merch</Button>
       </Link>
     </div>
 
