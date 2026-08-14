@@ -33,7 +33,27 @@ const pill = { background: 'rgba(0, 0, 0, 0.6)', padding: '0.35rem 0.85rem', bor
 // The title + tagline wordmark is rendered persistently in App (top-left here);
 // this page holds the rest of the content, centered.
 const Home = ({ user }) => (
-  <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', textAlign: 'center', padding: '2rem 2rem 10vh' }}>
+  <div className='home'>
+    <style>{`
+      .home {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-end;   /* content sits at the bottom on desktop */
+        text-align: center;
+        padding: 2rem 2rem 10vh;
+      }
+      /* On phones the fixed MR HANDSOME wordmark + tagline are tall, and the
+         bottom-anchored stack was growing up into them. Top-anchor the content
+         below the title instead, and let the page scroll if it runs long. */
+      @media (max-width: 600px) {
+        .home {
+          justify-content: flex-start;
+          padding: clamp(9rem, 33vw, 12rem) 1.1rem 3rem;
+        }
+      }
+    `}</style>
     {/* Streaming links */}
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center', marginBottom: '2.5rem' }}>
       <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap', justifyContent: 'center', maxWidth: '640px' }}>
@@ -80,6 +100,10 @@ const Home = ({ user }) => (
           .orbit-item:hover .orbit-label { text-decoration: underline; }
           @media (prefers-reduced-motion: reduce) {
             .orbit, .orbit-label { animation: none; }
+          }
+          /* Tighter ring on phones so it doesn't crowd the rest of the stack. */
+          @media (max-width: 600px) {
+            .orbit-wrap { --r: clamp(72px, 25vw, 116px); --d: calc(2 * var(--r) + 3.5rem); }
           }
         `}</style>
         <span className='orbit-center'>follow</span>
