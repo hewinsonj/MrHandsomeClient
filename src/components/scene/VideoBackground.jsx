@@ -39,16 +39,30 @@ const VideoBackground = ({ running }) => {
     window.dispatchEvent(new Event('mh-video-start'))
   }
 
-  // Intro finished -> hand straight to the looping clip (hard cut: loop element
-  // A already has frame 0 decoded underneath, so revealing it shows no black).
-  const handleIntroEnded = () => {
-    const a = loopARef.current
-    if (a) { a.currentTime = 0; a.play().catch(() => {}) }
+  // Intro finished -> hand straight to the looping clip. The loop clip has been
+  // buffering ahead (preload=auto), so we must explicitly seek it to 0 and wait
+  // for the seek + playback to actually begin BEFORE revealing it — otherwise it
+  // can start from its buffered-ahead position and appear to begin mid-clip. The
+  // intro's final frame stays up until then, so the hard cut is seamless.
+  const revealLoop = () => {
     setLoopFront(0)
     setPhase('loop')
     // enable opacity transitions a tick later so THIS reveal is instant but the
     // subsequent self-crossfades dissolve.
     setTimeout(() => setLoopStarted(true), 60)
+  }
+
+  const handleIntroEnded = () => {
+    const a = loopARef.current
+    if (!a) { revealLoop(); return }
+    const begin = () => a.play().then(revealLoop).catch(revealLoop)
+    if (a.currentTime === 0) {
+      begin()
+    } else {
+      const onSeeked = () => { a.removeEventListener('seeked', onSeeked); begin() }
+      a.addEventListener('seeked', onSeeked)
+      a.currentTime = 0
+    }
   }
 
   // As the visible loop element nears its end, start the other from 0 and
