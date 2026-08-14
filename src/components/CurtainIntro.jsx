@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { useProgress } from '@react-three/drei'
 import { SCENE_ENABLED } from '../sceneConfig'
 
-// How long the curtain-open sequence plays after "look" before we reveal the
-// MR. HANDSOME landing (/welcome), where the title drops into place. The curtains
-// keep opening behind the scene after the hand-off.
-const SEQUENCE_MS = 1500
+// The menu (MR. HANDSOME landing at /welcome) opens once the background music
+// starts — which itself waits for the video to start. This safety timeout opens
+// it anyway if the audio never starts (e.g. blocked), so we can't stay on black.
+const MENU_FALLBACK_MS = 6000
 
 // The landing page: closed red curtains (rendered in the 3D scene) with nothing
 // on screen but a "look" button. Pressing it starts the intro, then — once the
@@ -25,21 +25,16 @@ const CurtainIntro = ({ started, onLook }) => {
     return () => clearTimeout(t)
   }, [])
 
-  // Schedule the hand-off as an effect tied to `started` (with cleanup) rather
-  // than inside the click handler, so it can't double-fire or leak a stale timer.
-  // Hand off after the sequence. Driven by requestAnimationFrame rather than
-  // setTimeout: this page runs a heavy WebGL loop that can starve timers, and
-  // rAF also ties the countdown to the frames the scene is actually rendering.
+  // Once "look" is pressed, open the menu (hand off to /welcome) when the music
+  // starts — the last link in the look -> video -> audio -> menu chain — with a
+  // fallback timeout so a blocked/silent audio can't strand us on black.
   useEffect(() => {
     if (!started) return undefined
-    const start = performance.now()
-    let raf = 0
-    const tick = () => {
-      if (performance.now() - start >= SEQUENCE_MS) navigate('/welcome')
-      else raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
+    let done = false
+    const openMenu = () => { if (done) return; done = true; navigate('/welcome') }
+    window.addEventListener('mh-audio-start', openMenu)
+    const t = setTimeout(openMenu, MENU_FALLBACK_MS)
+    return () => { window.removeEventListener('mh-audio-start', openMenu); clearTimeout(t) }
   }, [started, navigate])
 
   return (

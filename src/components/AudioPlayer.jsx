@@ -3,8 +3,6 @@ import React, { useEffect, useRef, useState } from 'react'
 // Looping background track. The filename has spaces/parens, so encode it.
 const AUDIO_SRC = '/audio/' + encodeURIComponent('web loop 6 17 26 (1).wav')
 
-const AUTOPLAY_DELAY_MS = 2000   // start the track this long after load
-
 // Background music with a fixed play/pause control in the bottom-right corner.
 // Mounted once in App (outside <Routes>) so playback persists across navigation.
 const AudioPlayer = () => {
@@ -16,8 +14,9 @@ const AudioPlayer = () => {
     if (!audio) return
     audio.volume = 0.6
 
-    // Keep button state in sync with what the element is actually doing.
-    const onPlay = () => setPlaying(true)
+    // Keep button state in sync, and announce when the music actually starts so
+    // the menu can open in step with it.
+    const onPlay = () => { setPlaying(true); window.dispatchEvent(new Event('mh-audio-start')) }
     const onPause = () => setPlaying(false)
     audio.addEventListener('play', onPlay)
     audio.addEventListener('pause', onPause)
@@ -26,24 +25,26 @@ const AudioPlayer = () => {
     const onAlbumPlay = () => audio.pause()
     window.addEventListener('mh-album-play', onAlbumPlay)
 
-    // Start the track ~2s after load. Browsers usually block audio-with-sound
-    // until a user gesture, so if the delayed play is rejected we fall back to
-    // starting on the first click/keypress.
+    // Start the music only when the background video starts (chained off the
+    // look tap). If the browser blocks it, fall back to the first user gesture.
     let onGesture = null
-    const timer = setTimeout(() => {
+    const startMusic = () => {
       audio.play().catch(() => {
+        if (onGesture) return
         onGesture = () => {
           audio.play().catch(() => {})
           window.removeEventListener('pointerdown', onGesture)
           window.removeEventListener('keydown', onGesture)
+          onGesture = null
         }
         window.addEventListener('pointerdown', onGesture)
         window.addEventListener('keydown', onGesture)
       })
-    }, AUTOPLAY_DELAY_MS)
+    }
+    window.addEventListener('mh-video-start', startMusic)
 
     return () => {
-      clearTimeout(timer)
+      window.removeEventListener('mh-video-start', startMusic)
       if (onGesture) {
         window.removeEventListener('pointerdown', onGesture)
         window.removeEventListener('keydown', onGesture)

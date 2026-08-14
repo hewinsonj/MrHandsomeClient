@@ -19,33 +19,25 @@ const VideoBackground = ({ running }) => {
   const [phase, setPhase] = useState('intro')     // 'intro' | 'loop'
   const [loopFront, setLoopFront] = useState(0)    // which loop element is visible (0=A, 1=B)
   const [loopStarted, setLoopStarted] = useState(false)  // enables the crossfade transition only after the first (instant) reveal
-  const [introReady, setIntroReady] = useState(false)    // intro clip has its first frame decoded
-  const [fallbackHit, setFallbackHit] = useState(false)  // safety: reveal even if the video never loads
+  const [videoBlocked, setVideoBlocked] = useState(false)  // true only if the video can't play at all
   const swapping = useRef(false)
+  const startedSignal = useRef(false)
 
-  // Hold the black cover until the intro's first frame is actually decoded, so the
-  // fade never completes onto the still poster on a slow (mobile) connection. The
-  // still only shows if the video errors or the safety timeout below fires.
-  const revealed = running && (introReady || fallbackHit)
-
-  // Safety net: if the intro never signals ready (unsupported/blocked/offline),
-  // reveal anyway after a max wait so we can't stay stuck on black forever.
+  // Start the intro the instant "look" is pressed — no waiting for the first
+  // frame. Until it paints, the plain black base shows (never the still).
   useEffect(() => {
-    if (!running) return undefined
-    const t = setTimeout(() => setFallbackHit(true), 10000)
-    return () => clearTimeout(t)
+    if (!running) return
+    const v = introRef.current
+    if (v) { v.currentTime = 0; v.play().catch(() => {}) }
   }, [running])
 
-  // Start the intro clip only AFTER the fade-from-black completes (which itself
-  // only begins once the clip is loaded).
-  useEffect(() => {
-    if (!revealed) return undefined
-    const t = setTimeout(() => {
-      const v = introRef.current
-      if (v) { v.currentTime = 0; v.play().catch(() => {}) }
-    }, FADE_SECONDS * 1000)
-    return () => clearTimeout(t)
-  }, [revealed])
+  // When the intro actually begins painting, signal the app so the audio (and
+  // then the menu) can start in sync with the video.
+  const handleIntroPlaying = () => {
+    if (startedSignal.current) return
+    startedSignal.current = true
+    window.dispatchEvent(new Event('mh-video-start'))
+  }
 
   // Intro finished -> hand straight to the looping clip (hard cut: loop element
   // A already has frame 0 decoded underneath, so revealing it shows no black).
@@ -81,10 +73,9 @@ const VideoBackground = ({ running }) => {
   const loopTransition = loopStarted ? `opacity ${LOOP_CROSSFADE_S}s ease` : 'none'
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
-      {/* Poster / fallback still — shows through until a clip paints, and stays put
-          if a device blocks video autoplay entirely. */}
-      <img src={STATIC_BG} alt='' aria-hidden='true' style={cover} />
+    <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', background: '#000' }}>
+      {/* Still is a fallback ONLY — shown if the video genuinely can't play. */}
+      {videoBlocked && <img src={STATIC_BG} alt='' aria-hidden='true' style={cover} />}
 
       {/* Loop pair sits underneath the intro so the intro->loop swap is a clean cut. */}
       <video
@@ -107,20 +98,19 @@ const VideoBackground = ({ running }) => {
         ref={introRef}
         src={BG_CLIP_INTRO}
         muted playsInline preload='auto' aria-hidden='true'
-        onLoadedData={() => setIntroReady(true)}
-        onCanPlay={() => setIntroReady(true)}
-        onError={() => setIntroReady(true)}
+        onPlaying={handleIntroPlaying}
+        onError={() => setVideoBlocked(true)}
         onEnded={handleIntroEnded}
         style={{ ...cover, opacity: phase === 'intro' ? 1 : 0, transition: 'none' }}
       />
 
-      {/* Black cover on the landing (behind "look"); fades out once look is pressed
-          AND the intro clip is loaded, so the reveal is the video, not the still. */}
+      {/* Black cover on the landing (behind "look"); fades out once look is pressed.
+          The base is black too, so while the video loads you see black, never the still. */}
       <div
         aria-hidden='true'
         style={{
           position: 'absolute', inset: 0, background: '#000',
-          opacity: revealed ? 0 : 1,
+          opacity: running ? 0 : 1,
           transition: `opacity ${FADE_SECONDS}s ease-in-out`,
         }}
       />
