@@ -55,14 +55,33 @@ const VideoBackground = ({ running }) => {
   const handleIntroEnded = () => {
     const a = loopARef.current
     if (!a) { revealLoop(); return }
-    const begin = () => a.play().then(revealLoop).catch(revealLoop)
-    if (a.currentTime === 0) {
-      begin()
-    } else {
-      const onSeeked = () => { a.removeEventListener('seeked', onSeeked); begin() }
-      a.addEventListener('seeked', onSeeked)
-      a.currentTime = 0
+
+    // Mobile browsers buffer the loop clip ahead and can begin playback a second
+    // or two in rather than at 0. So force it to the start and only reveal once
+    // it's genuinely playing near the beginning — snapping it back to 0 if it
+    // jumped ahead. The intro's last frame holds until then, so the cut stays
+    // seamless and clip 2 always enters at its start.
+    let done = false
+    let snaps = 0
+    const settle = () => {
+      if (done) return
+      if (a.currentTime > 0.3 && snaps < 4) {   // began ahead -> pull back to start
+        snaps++
+        try { a.currentTime = 0 } catch (e) { /* ignore */ }
+        return
+      }
+      done = true
+      a.removeEventListener('timeupdate', settle)
+      revealLoop()
     }
+    a.addEventListener('timeupdate', settle)
+    try { a.currentTime = 0 } catch (e) { /* ignore */ }
+    a.play().catch(() => {
+      if (done) return
+      done = true
+      a.removeEventListener('timeupdate', settle)
+      revealLoop()
+    })
   }
 
   // As the visible loop element nears its end, start the other from 0 and
